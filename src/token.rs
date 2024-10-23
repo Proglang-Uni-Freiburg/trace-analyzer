@@ -1,6 +1,6 @@
 use logos::Logos;
 
-#[derive(Logos, Debug)]
+#[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
 pub enum Token<'a> {
     // single char tokens
