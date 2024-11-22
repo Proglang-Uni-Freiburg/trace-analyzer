@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use log::{debug};
+use log::{debug, warn};
 use crate::error::{AnalyzerError, AnalyzerErrorType};
 use crate::parser::{Operand, Operation, Trace};
 
@@ -15,8 +15,8 @@ struct MemoryLocation<'a> {
 }
 
 pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
-    let mut lock_map: HashMap<&str, Lock> = HashMap::new();
-    let mut memory_map: HashMap<&str, MemoryLocation> = HashMap::new();
+    let mut locks: HashMap<&str, Lock> = HashMap::new();
+    let mut memory_locations: HashMap<&str, MemoryLocation> = HashMap::new();
     let mut line = 1;
 
     for event in &trace.events {
@@ -25,7 +25,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 // 'acquire' operations only have 'lock_identifier' operands
                 let lock_id = lock_id(&event.operand, &event.operation, line)?;
 
-                if let Some(lock) = lock_map.get(lock_id) {
+                if let Some(lock) = locks.get(lock_id) {
                     // repeated acquisition of the same lock
                     if lock.is_locked {
                         let error = AnalyzerError {
@@ -45,14 +45,14 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                     owner: event.thread_identifier,
                 };
 
-                lock_map.insert(lock_id, lock);
-                debug!("Locked lock '{lock_id}' by thread '{}' in line {line}", event.thread_identifier);
+                locks.insert(lock_id, lock);
+                debug!("Thread '{}' acquired lock '{lock_id}' in line {line}", event.thread_identifier);
             }
             Operation::Release => {
                 // 'release' operations only have 'lock_identifier' operands
                 let lock_id = lock_id(&event.operand, &event.operation, line)?;
 
-                if let Some(lock) = lock_map.get(lock_id) {
+                if let Some(lock) = locks.get(lock_id) {
                     if lock.is_locked {
                         if event.thread_identifier != lock.owner {
                             let error = AnalyzerError {
@@ -72,10 +72,11 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                             owner: event.thread_identifier,
                         };
 
-                        lock_map.insert(lock_id, updated_lock);
-                        debug!("Unlocked lock '{lock_id}' by thread '{}' in line {line}", event.thread_identifier);
+                        locks.insert(lock_id, updated_lock);
+                        debug!("Thread '{}' released lock '{lock_id}' in line {line}", event.thread_identifier);
                     } else {
-                        // TODO is releasing an unlocked lock a violation?
+                        // TODO is releasing an released lock a violation?
+                        warn!("Thread '{}' released already released lock '{lock_id}' in line {line}", event.thread_identifier);
                     }
                 }
             }
@@ -85,13 +86,13 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                     id: memory_id,
                 };
 
-                memory_map.insert(memory_id, memory_location);
+                memory_locations.insert(memory_id, memory_location);
                 debug!("Thread '{}' wrote to memory location '{memory_id}' in line {line}", event.thread_identifier);
             }
             Operation::Read => {
                 let memory_id = memory_id(&event.operand, &event.operation, line)?;
 
-                if let None = memory_map.get(memory_id) {
+                if let None = memory_locations.get(memory_id) {
                     let error = AnalyzerError {
                         line,
                         error_type: AnalyzerErrorType::ReadFromUnwrittenMemory {
