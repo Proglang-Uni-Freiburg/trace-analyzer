@@ -5,7 +5,7 @@ use crate::parser::{Operand, Operation, Trace};
 
 struct Lock<'a> {
     id: &'a str,
-    accessor: &'a str,
+    owner: &'a str,
     is_locked: bool,
 }
 
@@ -39,7 +39,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 let lock = Lock {
                     id: lock_id,
                     is_locked: true,
-                    accessor: event.thread_identifier,
+                    owner: event.thread_identifier,
                 };
 
                 lock_map.insert(lock_id, lock);
@@ -49,15 +49,12 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 // 'release' operations only have 'lock_identifier' operands
                 let lock_id = lock_id(&event.operand, &event.operation, line)?;
 
-                // TODO is releasing an unlocked lock a violation?
-
-                if let Some(lock_state) = lock_map.get(lock_id) {
-                    // repeated acquisition of the same lock
-                    if lock_state.is_locked {
-                        if lock_state.accessor != event.thread_identifier {
+                if let Some(lock) = lock_map.get(lock_id) {
+                    if lock.is_locked {
+                        if event.thread_identifier != lock.owner {
                             let error = AnalyzerError {
                                 line,
-                                error_type: AnalyzerErrorType::DisallowedRelease(lock_state.id, event.thread_identifier, lock_state.accessor),
+                                error_type: AnalyzerErrorType::DisallowedRelease(lock.id, event.thread_identifier, lock.owner),
                             };
                             return Err(error);
                         }
@@ -65,11 +62,13 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                         let updated_lock = Lock {
                             id: lock_id,
                             is_locked: false,
-                            accessor: event.thread_identifier,
+                            owner: event.thread_identifier,
                         };
 
                         lock_map.insert(lock_id, updated_lock);
                         debug!("Unlocked lock '{lock_id}' by thread '{}' in line {line}", event.thread_identifier);
+                    } else {
+                        // TODO is releasing an unlocked lock a violation?
                     }
                 }
             }
