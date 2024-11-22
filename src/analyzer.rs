@@ -31,7 +31,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                         let error = AnalyzerError {
                             line,
                             error_type: AnalyzerErrorType::RepeatedAcquisition {
-                                lock_id,
+                                lock_id: lock.id,
                                 thread_id: event.thread_identifier,
                             },
                         };
@@ -58,7 +58,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                             let error = AnalyzerError {
                                 line,
                                 error_type: AnalyzerErrorType::DisallowedRelease {
-                                    lock_id,
+                                    lock_id: lock.id,
                                     thread_id: event.thread_identifier,
                                     owner: lock.owner,
                                 },
