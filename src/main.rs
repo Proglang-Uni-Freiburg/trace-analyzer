@@ -12,6 +12,7 @@ mod parser;
 mod arguments;
 mod analyzer;
 mod error;
+mod normalizer;
 
 fn main() {
     SimpleLogger::new().init().unwrap();

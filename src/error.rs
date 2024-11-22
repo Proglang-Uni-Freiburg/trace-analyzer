@@ -8,7 +8,12 @@ pub struct AnalyzerError<'a> {
 
 pub(crate) enum AnalyzerErrorType<'a> {
     MismatchedArguments(&'a Operation, &'a Operand<'a>),
-    RepeatedAcquisition(&'a str, &'a str)
+    // lock_id, thread_identifier
+    RepeatedAcquisition(&'a str, &'a str),
+    // lock_id, releasing_thread, owner
+    DisallowedRelease(&'a str, &'a str, &'a str),
+    // memory_id, thread_identifier
+    ReadFromUnwrittenMemory(&'a str, &'a str),
 }
 
 impl Display for AnalyzerErrorType<'_> {
@@ -18,7 +23,13 @@ impl Display for AnalyzerErrorType<'_> {
                 write!(f, "Operation '{:?}' expected an operand of type '{:?}'", operation, operand)
             }
             AnalyzerErrorType::RepeatedAcquisition(lock_id, thread_identifier) => {
-                write!(f, "Thread '{thread_identifier}' tried to acquire Lock '{lock_id}' which was already locked")
+                write!(f, "Thread '{thread_identifier}' tried to acquire lock '{lock_id}' which was already locked")
+            }
+            AnalyzerErrorType::DisallowedRelease(lock_id, releasing_thread, owner) => {
+                write!(f, "Thread '{releasing_thread}' tried to release lock '{lock_id}' which is owned by thread '{owner}'")
+            }
+            AnalyzerErrorType::ReadFromUnwrittenMemory(memory_id, thread_identifier) => {
+                write!(f, "Thread {thread_identifier} tried to read from memory location '{memory_id}' which was not written to")
             }
         }
     }

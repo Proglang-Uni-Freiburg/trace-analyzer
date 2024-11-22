@@ -37,6 +37,7 @@ pub struct Trace<'a> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Event<'a> {
     pub(crate) thread_identifier: &'a str,
     pub(crate) operation: Operation,
@@ -56,6 +57,7 @@ pub enum Operation {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Operand<'a> {
     MemoryLocation(&'a str),
     LockIdentifier(&'a str),
