@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use peg::parser;
 use crate::token::Token;
 
@@ -31,13 +32,19 @@ parser!(
     }
 );
 
-#[derive(Debug)]
 pub struct Trace<'a> {
     pub(crate) events: Vec<Event<'a>>
 }
 
-#[derive(Debug)]
-#[allow(dead_code)]
+impl Display for Trace<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for event in &self.events {
+            writeln!(f, "{}", event)?;
+        }
+        Ok(())
+    }
+}
+
 pub struct Event<'a> {
     pub(crate) thread_identifier: &'a str,
     pub(crate) operation: Operation,
@@ -45,7 +52,12 @@ pub struct Event<'a> {
     loc: i64,
 }
 
-#[derive(Debug)]
+impl Display for Event<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Event[Thread={} Operation={} Operand={} LoC={}]", self.thread_identifier, self.operation, self.operand, self.loc)
+    }
+}
+
 pub enum Operation {
     Read,
     Write,
@@ -56,20 +68,32 @@ pub enum Operation {
     Join
 }
 
-#[derive(Debug)]
-#[allow(dead_code)]
+impl Display for Operation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Operation::Read => write!(f, "Read"),
+            Operation::Write => write!(f, "Write"),
+            Operation::Acquire => write!(f, "Acquire"),
+            Operation::Request => write!(f, "Request"),
+            Operation::Release => write!(f, "Release"),
+            Operation::Fork => write!(f, "Fork"),
+            Operation::Join => write!(f, "Join"),
+        }
+    }
+}
+
 pub enum Operand<'a> {
     MemoryLocation(&'a str),
     LockIdentifier(&'a str),
     ThreadIdentifier(&'a str),
 }
 
-/*
-We restrict our attention to well-formed traces 𝜎, that abide to shared-memory semantics. That is,
-if a lock ℓ is acquired at an event 𝑒 by thread 𝑡, then any later acquisition event 𝑒′ of the same lock
-ℓ must be preceded by an event 𝑒′′ that releases lock ℓ in thread 𝑡 in between the occurrence of 𝑒
-and 𝑒′. Taking 𝑒′′ to be the earliest such release event, we say that 𝑒 and 𝑒′′ are matching acquire
-and release events, and denote this by 𝑒 = match𝜎 (𝑒′′) and 𝑒′′ = match𝜎 (𝑒). Moreover, every read
-event has at least one preceding write event on the same location, that it reads its value from.
-(Page 5 Paper)
- */
+impl Display for Operand<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Operand::MemoryLocation(memory_location) => write!(f, "Memory[{memory_location}]"),
+            Operand::LockIdentifier(lock_identifier) => write!(f, "Lock[{lock_identifier}]"),
+            Operand::ThreadIdentifier(thread_identifier) => write!(f, "Thread[{thread_identifier}]")
+        }
+    }
+}

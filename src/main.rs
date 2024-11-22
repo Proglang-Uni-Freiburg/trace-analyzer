@@ -47,7 +47,7 @@ fn main() {
             info!("Analyzer could not find a violation");
         }
         Err(error) => {
-            error!("Analyzer found a violation in line {}: {}", error.line, error.error_type);
+            error!("Analyzer found a violation in line '{}': {}", error.line, error.error_type);
         }
     }
 }

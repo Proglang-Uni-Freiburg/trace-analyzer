@@ -30,7 +30,7 @@ impl Display for AnalyzerErrorType<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             AnalyzerErrorType::MismatchedArguments { operation, operand } => {
-                write!(f, "Operation '{:?}' expected an operand of type '{:?}'", operation, operand)
+                write!(f, "Operation '{operation}' expected an operand of type '{operand}'")
             }
             AnalyzerErrorType::RepeatedAcquisition { lock_id, thread_id } => {
                 write!(f, "Thread '{thread_id}' tried to acquire lock '{lock_id}' which was already locked")
@@ -39,7 +39,7 @@ impl Display for AnalyzerErrorType<'_> {
                 write!(f, "Thread '{thread_id}' tried to release lock '{lock_id}' which is owned by thread '{owner}'")
             }
             AnalyzerErrorType::ReadFromUnwrittenMemory { memory_id, thread_id } => {
-                write!(f, "Thread {thread_id} tried to read from memory location '{memory_id}' which was not written to")
+                write!(f, "Thread '{thread_id}' tried to read from memory location '{memory_id}' which was not written to")
             }
         }
     }
