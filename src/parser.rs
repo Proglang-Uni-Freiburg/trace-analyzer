@@ -91,9 +91,9 @@ pub enum Operand<'a> {
 impl Display for Operand<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Operand::MemoryLocation(memory_location) => write!(f, "Memory[{memory_location}]"),
-            Operand::LockIdentifier(lock_identifier) => write!(f, "Lock[{lock_identifier}]"),
-            Operand::ThreadIdentifier(thread_identifier) => write!(f, "Thread[{thread_identifier}]")
+            Operand::MemoryLocation(memory_location) => write!(f, "{memory_location}"),
+            Operand::LockIdentifier(lock_identifier) => write!(f, "{lock_identifier}"),
+            Operand::ThreadIdentifier(thread_identifier) => write!(f, "{thread_identifier}")
         }
     }
 }
