@@ -5,14 +5,14 @@ parser!(
     pub grammar trace_grammar<'a>() for [Token<'a>] {
         use crate::token::Token::*;
 
-        pub rule parse() -> Program<'a>
-            = traces:trace()* {
-                Program { traces }
+        pub rule parse() -> Trace<'a>
+            = events:event()* {
+                Trace { events }
             }
 
-        rule trace() -> Trace<'a>
+        rule event() -> Event<'a>
             = [ThreadIdentifier(thread_identifier)] [Pipe] operation:operation() [LeftParenthesis] operand:operand() [RightParenthesis] [Pipe] [LineNumber(loc)] {
-                Trace { thread_identifier, operation, operand, loc }
+                Event { thread_identifier, operation, operand, loc }
             }
 
         rule operation() -> Operation
@@ -32,12 +32,12 @@ parser!(
 );
 
 #[derive(Debug)]
-pub struct Program<'a> {
-    pub(crate) traces: Vec<Trace<'a>>
+pub struct Trace<'a> {
+    pub(crate) events: Vec<Event<'a>>
 }
 
 #[derive(Debug)]
-pub struct Trace<'a> {
+pub struct Event<'a> {
     pub(crate) thread_identifier: &'a str,
     pub(crate) operation: Operation,
     pub(crate) operand: Operand<'a>,

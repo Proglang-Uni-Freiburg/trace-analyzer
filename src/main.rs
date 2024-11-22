@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 use clap::Parser;
-use log::error;
+use log::{error, info};
 use logos::{Logos};
 use simple_logger::SimpleLogger;
 use crate::parser::{trace_grammar};
@@ -33,16 +33,18 @@ fn main() {
         }
     };
 
-    let program = match trace_grammar::parse(&tokens) {
-        Ok(program) => program,
+    let trace = match trace_grammar::parse(&tokens) {
+        Ok(trace) => trace,
         Err(_) => {
             eprintln!("Parsing failed yikes");
             return;
         }
     };
 
-    match analyzer::analyze_program(&program) {
-        Ok(_) => {}
+    match analyzer::analyze_trace(&trace) {
+        Ok(_) => {
+            info!("Analyzer could not find a violation");
+        }
         Err(error) => {
             error!("Analyzer found a violation in line {}: {}", error.line, error.error_type);
         }
