@@ -2,7 +2,7 @@ use peg::parser;
 use crate::token::Token;
 
 parser!(
-    pub grammar analyzer<'a>() for [Token<'a>] {
+    pub grammar trace_grammar<'a>() for [Token<'a>] {
         use crate::token::Token::*;
 
         pub rule parse() -> Program<'a>
@@ -33,14 +33,14 @@ parser!(
 
 #[derive(Debug)]
 pub struct Program<'a> {
-    traces: Vec<Trace<'a>>
+    pub(crate) traces: Vec<Trace<'a>>
 }
 
 #[derive(Debug)]
 pub struct Trace<'a> {
-    thread_identifier: &'a str,
-    operation: Operation,
-    operand: Operand<'a>,
+    pub(crate) thread_identifier: &'a str,
+    pub(crate) operation: Operation,
+    pub(crate) operand: Operand<'a>,
     loc: i64,
 }
 
@@ -61,3 +61,13 @@ pub enum Operand<'a> {
     LockIdentifier(&'a str),
     ThreadIdentifier(&'a str),
 }
+
+/*
+We restrict our attention to well-formed traces 𝜎, that abide to shared-memory semantics. That is,
+if a lock ℓ is acquired at an event 𝑒 by thread 𝑡, then any later acquisition event 𝑒′ of the same lock
+ℓ must be preceded by an event 𝑒′′ that releases lock ℓ in thread 𝑡 in between the occurrence of 𝑒
+and 𝑒′. Taking 𝑒′′ to be the earliest such release event, we say that 𝑒 and 𝑒′′ are matching acquire
+and release events, and denote this by 𝑒 = match𝜎 (𝑒′′) and 𝑒′′ = match𝜎 (𝑒). Moreover, every read
+event has at least one preceding write event on the same location, that it reads its value from.
+(Page 5 Paper)
+ */
