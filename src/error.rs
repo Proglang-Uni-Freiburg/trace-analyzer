@@ -3,33 +3,43 @@ use crate::parser::{Operand, Operation};
 
 pub struct AnalyzerError<'a> {
     pub(crate) line: usize,
-    pub(crate) error_type: AnalyzerErrorType<'a>
+    pub(crate) error_type: AnalyzerErrorType<'a>,
 }
 
 pub(crate) enum AnalyzerErrorType<'a> {
-    MismatchedArguments(&'a Operation, &'a Operand<'a>),
-    // lock_id, thread_identifier
-    RepeatedAcquisition(&'a str, &'a str),
-    // lock_id, releasing_thread, owner
-    DisallowedRelease(&'a str, &'a str, &'a str),
-    // memory_id, thread_identifier
-    ReadFromUnwrittenMemory(&'a str, &'a str),
+    MismatchedArguments {
+        operation: &'a Operation,
+        operand: &'a Operand<'a>,
+    },
+    RepeatedAcquisition {
+        lock_id: &'a str,
+        thread_id: &'a str,
+    },
+    DisallowedRelease {
+        lock_id: &'a str,
+        thread_id: &'a str,
+        owner: &'a str,
+    },
+    ReadFromUnwrittenMemory {
+        memory_id: &'a str,
+        thread_id: &'a str,
+    },
 }
 
 impl Display for AnalyzerErrorType<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            AnalyzerErrorType::MismatchedArguments(operation, operand) => {
+            AnalyzerErrorType::MismatchedArguments { operation, operand } => {
                 write!(f, "Operation '{:?}' expected an operand of type '{:?}'", operation, operand)
             }
-            AnalyzerErrorType::RepeatedAcquisition(lock_id, thread_identifier) => {
-                write!(f, "Thread '{thread_identifier}' tried to acquire lock '{lock_id}' which was already locked")
+            AnalyzerErrorType::RepeatedAcquisition { lock_id, thread_id } => {
+                write!(f, "Thread '{thread_id}' tried to acquire lock '{lock_id}' which was already locked")
             }
-            AnalyzerErrorType::DisallowedRelease(lock_id, releasing_thread, owner) => {
-                write!(f, "Thread '{releasing_thread}' tried to release lock '{lock_id}' which is owned by thread '{owner}'")
+            AnalyzerErrorType::DisallowedRelease { lock_id, thread_id, owner } => {
+                write!(f, "Thread '{thread_id}' tried to release lock '{lock_id}' which is owned by thread '{owner}'")
             }
-            AnalyzerErrorType::ReadFromUnwrittenMemory(memory_id, thread_identifier) => {
-                write!(f, "Thread {thread_identifier} tried to read from memory location '{memory_id}' which was not written to")
+            AnalyzerErrorType::ReadFromUnwrittenMemory { memory_id, thread_id } => {
+                write!(f, "Thread {thread_id} tried to read from memory location '{memory_id}' which was not written to")
             }
         }
     }

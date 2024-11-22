@@ -30,7 +30,10 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                     if lock.is_locked {
                         let error = AnalyzerError {
                             line,
-                            error_type: AnalyzerErrorType::RepeatedAcquisition(lock.id, event.thread_identifier),
+                            error_type: AnalyzerErrorType::RepeatedAcquisition {
+                                lock_id,
+                                thread_id: event.thread_identifier,
+                            },
                         };
                         return Err(error);
                     }
@@ -54,7 +57,11 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                         if event.thread_identifier != lock.owner {
                             let error = AnalyzerError {
                                 line,
-                                error_type: AnalyzerErrorType::DisallowedRelease(lock.id, event.thread_identifier, lock.owner),
+                                error_type: AnalyzerErrorType::DisallowedRelease {
+                                    lock_id,
+                                    thread_id: event.thread_identifier,
+                                    owner: lock.owner,
+                                },
                             };
                             return Err(error);
                         }
@@ -87,7 +94,10 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 if let None = memory_map.get(memory_id) {
                     let error = AnalyzerError {
                         line,
-                        error_type: AnalyzerErrorType::ReadFromUnwrittenMemory(memory_id, event.thread_identifier),
+                        error_type: AnalyzerErrorType::ReadFromUnwrittenMemory {
+                            memory_id,
+                            thread_id: event.thread_identifier,
+                        },
                     };
                     return Err(error);
                 } else {
@@ -109,7 +119,10 @@ fn lock_id<'a>(operand: &'a Operand, operation: &'a Operation, line: usize) -> R
     } else {
         let error = AnalyzerError {
             line,
-            error_type: AnalyzerErrorType::MismatchedArguments(operation, &Operand::LockIdentifier("_")),
+            error_type: AnalyzerErrorType::MismatchedArguments {
+                operation,
+                operand: &Operand::LockIdentifier("_"),
+            },
         };
         Err(error)
     }
@@ -121,7 +134,10 @@ fn memory_id<'a>(operand: &'a Operand, operation: &'a Operation, line: usize) ->
     } else {
         let error = AnalyzerError {
             line,
-            error_type: AnalyzerErrorType::MismatchedArguments(operation, &Operand::MemoryLocation("_")),
+            error_type: AnalyzerErrorType::MismatchedArguments {
+                operation,
+                operand: &Operand::MemoryLocation("_"),
+            },
         };
         Err(error)
     }
