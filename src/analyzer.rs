@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use log::{debug, warn};
+use log::{debug};
 use crate::error::{AnalyzerError, AnalyzerErrorType};
 use crate::parser::{Operand, Operation, Trace};
 
 struct Lock<'a> {
     id: &'a str,
-    owner: &'a str,
-    is_locked: bool,
+    owner: Option<&'a str>,
+    locked: bool,
 }
 
 #[allow(dead_code)]
@@ -27,7 +27,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
 
                 if let Some(lock) = locks.get(lock_id) {
                     // repeated acquisition of the same lock
-                    if lock.is_locked {
+                    if lock.locked {
                         let error = AnalyzerError {
                             line,
                             error_type: AnalyzerErrorType::RepeatedAcquisition {
@@ -41,8 +41,8 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
 
                 let lock = Lock {
                     id: lock_id,
-                    is_locked: true,
-                    owner: event.thread_identifier,
+                    locked: true,
+                    owner: Some(event.thread_identifier),
                 };
 
                 locks.insert(lock_id, lock);
@@ -53,30 +53,38 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 let lock_id = lock_id(&event.operand, &event.operation, line)?;
 
                 if let Some(lock) = locks.get(lock_id) {
-                    if lock.is_locked {
-                        if event.thread_identifier != lock.owner {
-                            let error = AnalyzerError {
-                                line,
-                                error_type: AnalyzerErrorType::DisallowedRelease {
-                                    lock_id: lock.id,
-                                    thread_id: event.thread_identifier,
-                                    owner: lock.owner,
-                                },
-                            };
-                            return Err(error);
+                    if lock.locked {
+                        if let Some(owner) = lock.owner {
+                            if owner != event.thread_identifier {
+                                let error = AnalyzerError {
+                                    line,
+                                    error_type: AnalyzerErrorType::ReleasedNonOwningLock {
+                                        lock_id: lock.id,
+                                        thread_id: event.thread_identifier,
+                                        owner,
+                                    },
+                                };
+                                return Err(error);
+                            }
                         }
 
                         let updated_lock = Lock {
                             id: lock_id,
-                            is_locked: false,
-                            owner: event.thread_identifier,
+                            locked: false,
+                            owner: None,
                         };
 
                         locks.insert(lock_id, updated_lock);
                         debug!("Thread '{}' released lock '{lock_id}' in line {line}", event.thread_identifier);
                     } else {
-                        // TODO is releasing an released lock a violation?
-                        warn!("Thread '{}' released already released lock '{lock_id}' in line {line}", event.thread_identifier);
+                        let error = AnalyzerError {
+                            line,
+                            error_type: AnalyzerErrorType::RepeatedRelease {
+                                lock_id: lock.id,
+                                thread_id: event.thread_identifier,
+                            },
+                        };
+                        return Err(error);
                     }
                 }
             }
@@ -108,7 +116,6 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
             // other operations are not needed to check well-formedness
             _ => {}
         }
-
         line += 1;
     }
     Ok(())
