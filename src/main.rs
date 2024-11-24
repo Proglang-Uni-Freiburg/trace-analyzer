@@ -43,11 +43,7 @@ fn main() {
     };
 
     match analyzer::analyze_trace(&trace) {
-        Ok(_) => {
-            info!("Analyzer could not find a violation");
-        }
-        Err(error) => {
-            error!("Analyzer found a violation in line '{}': {}", error.line, error.error_type);
-        }
+        Ok(_) => info!("Analyzer could not find a violation"),
+        Err(error) => error!("Analyzer found a violation in line '{}': {}", error.line, error.error_type),
     }
 }
