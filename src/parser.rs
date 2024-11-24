@@ -45,6 +45,7 @@ impl Display for Trace<'_> {
     }
 }
 
+#[derive(Clone)]
 pub struct Event<'a> {
     pub(crate) thread_identifier: &'a str,
     pub(crate) operation: Operation,
@@ -58,6 +59,7 @@ impl Display for Event<'_> {
     }
 }
 
+#[derive(Clone)]
 pub enum Operation {
     Read,
     Write,
@@ -82,6 +84,7 @@ impl Display for Operation {
     }
 }
 
+#[derive(Clone)]
 pub enum Operand<'a> {
     MemoryLocation(&'a str),
     LockIdentifier(&'a str),
