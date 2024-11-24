@@ -8,8 +8,8 @@ pub struct AnalyzerError<'a> {
 
 pub(crate) enum AnalyzerErrorType<'a> {
     MismatchedArguments {
-        operation: &'a Operation,
-        operand: &'a Operand<'a>,
+        operation: Operation,
+        operand: Operand<'a>,
     },
     RepeatedAcquisition {
         lock_id: &'a str,
