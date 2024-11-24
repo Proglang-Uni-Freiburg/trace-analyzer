@@ -33,7 +33,7 @@ parser!(
 );
 
 pub struct Trace<'a> {
-    pub(crate) events: Vec<Event<'a>>
+    pub(crate) events: Vec<Event<'a>>,
 }
 
 impl Display for Trace<'_> {
@@ -67,7 +67,7 @@ pub enum Operation {
     Request,
     Release,
     Fork,
-    Join
+    Join,
 }
 
 impl Display for Operation {
@@ -89,6 +89,16 @@ pub enum Operand<'a> {
     MemoryLocation(&'a str),
     LockIdentifier(&'a str),
     ThreadIdentifier(&'a str),
+}
+
+impl Operand<'_> {
+    pub(crate) fn id(&self) -> &str {
+        match self {
+            Operand::MemoryLocation(memory_id) => memory_id,
+            Operand::LockIdentifier(lock_id) => lock_id,
+            Operand::ThreadIdentifier(thread_id) => thread_id,
+        }
+    }
 }
 
 impl Display for Operand<'_> {
