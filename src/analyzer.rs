@@ -45,39 +45,51 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 // 'release' operations only have 'lock_identifier' operands
                 let lock_id = expect_operand(&event, &Operand::LockIdentifier(""), line)?;
 
-                if let Some(lock) = locks.get(lock_id) {
-                    if !lock.locked {
+                match locks.get(lock_id) {
+                    None => {
                         let error = AnalyzerError {
                             line,
-                            error_type: AnalyzerErrorType::RepeatedRelease {
+                            error_type: AnalyzerErrorType::ReleasedNonAcquiredLock {
                                 lock_id,
                                 thread_id: event.thread_identifier,
                             },
                         };
                         return Err(error);
                     }
-
-                    if let Some(owner) = lock.owner {
-                        if owner != event.thread_identifier {
+                    Some(lock) => {
+                        if !lock.locked {
                             let error = AnalyzerError {
                                 line,
-                                error_type: AnalyzerErrorType::ReleasedNonOwningLock {
+                                error_type: AnalyzerErrorType::RepeatedRelease {
                                     lock_id,
                                     thread_id: event.thread_identifier,
-                                    owner,
                                 },
                             };
                             return Err(error);
                         }
+
+                        if let Some(owner) = lock.owner {
+                            if owner != event.thread_identifier {
+                                let error = AnalyzerError {
+                                    line,
+                                    error_type: AnalyzerErrorType::ReleasedNonOwningLock {
+                                        lock_id,
+                                        thread_id: event.thread_identifier,
+                                        owner,
+                                    },
+                                };
+                                return Err(error);
+                            }
+                        }
+
+                        let updated_lock = Lock {
+                            locked: false,
+                            owner: None,
+                        };
+
+                        locks.insert(lock_id, updated_lock);
+                        debug!("Thread '{}' released lock '{lock_id}' in line {line}", event.thread_identifier);
                     }
-
-                    let updated_lock = Lock {
-                        locked: false,
-                        owner: None,
-                    };
-
-                    locks.insert(lock_id, updated_lock);
-                    debug!("Thread '{}' released lock '{lock_id}' in line {line}", event.thread_identifier);
                 }
             }
             Operation::Write => {

@@ -30,6 +30,10 @@ pub(crate) enum AnalyzerErrorType<'a> {
         thread_id: &'a str,
         owner: &'a str,
     },
+    ReleasedNonAcquiredLock {
+        lock_id: &'a str,
+        thread_id: &'a str,
+    },
     ReadFromUnwrittenMemory {
         memory_id: &'a str,
         thread_id: &'a str,
@@ -53,6 +57,9 @@ impl Display for AnalyzerErrorType<'_> {
             }
             AnalyzerErrorType::RepeatedRelease { lock_id, thread_id } => {
                 write!(f, "Thread '{thread_id}' tried to release lock '{lock_id}' which was already released")
+            }
+            AnalyzerErrorType::ReleasedNonAcquiredLock { lock_id, thread_id } => {
+                write!(f, "Thread '{thread_id}' tried to release lock '{lock_id}' which was not previously acquired")
             }
         }
     }
