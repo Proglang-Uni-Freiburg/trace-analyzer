@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::mem::discriminant;
 use log::{debug};
 use crate::error::{AnalyzerError, AnalyzerErrorType};
 use crate::parser::{Event, Operand, Operation, Trace};
@@ -17,7 +18,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
         match event.operation {
             Operation::Acquire => {
                 // 'acquire' operations only have 'lock_identifier' operands
-                let lock_id = lock_id(&event, line)?;
+                let lock_id = expect_operand(&event, &Operand::LockIdentifier(""), line)?;
 
                 if let Some(lock) = locks.get(lock_id) {
                     if lock.locked {
@@ -42,7 +43,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
             }
             Operation::Release => {
                 // 'release' operations only have 'lock_identifier' operands
-                let lock_id = lock_id(&event, line)?;
+                let lock_id = expect_operand(&event, &Operand::LockIdentifier(""), line)?;
 
                 if let Some(lock) = locks.get(lock_id) {
                     if !lock.locked {
@@ -80,13 +81,13 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 }
             }
             Operation::Write => {
-                let memory_id = memory_id(&event, line)?;
+                let memory_id = expect_operand(&event, &Operand::MemoryLocation(""), line)?;
 
                 memory_locations.insert(memory_id);
                 debug!("Thread '{}' wrote to memory location '{memory_id}' in line {line}", event.thread_identifier);
             }
             Operation::Read => {
-                let memory_id = memory_id(&event, line)?;
+                let memory_id = expect_operand(&event, &Operand::MemoryLocation(""), line)?;
 
                 if let None = memory_locations.get(&memory_id) {
                     let error = AnalyzerError {
@@ -109,32 +110,18 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
     Ok(())
 }
 
-fn lock_id<'a>(event: &'a Event, line: usize) -> Result<&'a str, AnalyzerError<'a>> {
-    if let Operand::LockIdentifier(lock_identifier) = event.operand {
-        Ok(lock_identifier)
-    } else {
-        let error = AnalyzerError {
-            line,
-            error_type: AnalyzerErrorType::MismatchedArguments {
-                operation: event.clone().operation,
-                operand: Operand::LockIdentifier("_"),
-            },
-        };
-        Err(error)
+fn expect_operand<'a>(event: &'a Event, operand: &'a Operand, line: usize) -> Result<&'a str, AnalyzerError<'a>> {
+    if discriminant(&event.operand) == discriminant(operand) {
+        return Ok(event.operand.id());
     }
-}
 
-fn memory_id<'a>(event: &'a Event, line: usize) -> Result<&'a str, AnalyzerError<'a>> {
-    if let Operand::MemoryLocation(memory_location) = event.operand {
-        Ok(memory_location)
-    } else {
-        let error = AnalyzerError {
-            line,
-            error_type: AnalyzerErrorType::MismatchedArguments {
-                operation: event.clone().operation,
-                operand: Operand::MemoryLocation("_"),
-            },
-        };
-        Err(error)
-    }
+    let error = AnalyzerError {
+        line,
+        error_type: AnalyzerErrorType::MismatchedArguments {
+            operation: event.clone().operation,
+            operand: operand.clone(),
+        },
+    };
+
+    Err(error)
 }
