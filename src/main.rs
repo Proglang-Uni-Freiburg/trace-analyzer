@@ -3,9 +3,9 @@ use clap::Parser;
 use log::{error, info};
 use logos::{Logos};
 use simple_logger::SimpleLogger;
-use crate::parser::{trace_grammar};
-use crate::arguments::Arguments;
-use crate::token::Token;
+use parser::{trace_grammar};
+use arguments::Arguments;
+use token::Token;
 
 mod token;
 mod parser;
