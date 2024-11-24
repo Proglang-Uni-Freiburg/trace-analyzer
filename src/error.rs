@@ -1,9 +1,15 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use crate::parser::{Operand, Operation};
 
 pub struct AnalyzerError<'a> {
     pub(crate) line: usize,
     pub(crate) error_type: AnalyzerErrorType<'a>,
+}
+
+impl Display for AnalyzerError<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Analyzer found a violation in line '{}': {}", self.line, self.error_type)
+    }
 }
 
 pub(crate) enum AnalyzerErrorType<'a> {
