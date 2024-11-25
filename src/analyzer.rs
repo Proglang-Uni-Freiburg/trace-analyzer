@@ -101,7 +101,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
             Operation::Read => {
                 let memory_id = expect_operand(&event, &Operand::MemoryLocation(""), line)?;
 
-                if let None = memory_locations.get(&memory_id) {
+                if memory_locations.get(&memory_id).is_none() {
                     let error = AnalyzerError {
                         line,
                         error_type: AnalyzerErrorType::ReadFromUnwrittenMemory {
