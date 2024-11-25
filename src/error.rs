@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 use crate::parser::{Operand, Operation};
 
 pub struct AnalyzerError<'a> {
