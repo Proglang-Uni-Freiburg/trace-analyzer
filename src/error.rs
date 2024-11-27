@@ -1,65 +1,65 @@
 use std::fmt::{Display, Formatter};
 use crate::parser::{Operand, Operation};
 
-pub struct AnalyzerError<'a> {
+pub struct AnalyzerError {
     pub(crate) line: usize,
-    pub(crate) error_type: AnalyzerErrorType<'a>,
+    pub(crate) error_type: AnalyzerErrorType,
 }
 
-impl Display for AnalyzerError<'_> {
+impl Display for AnalyzerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Analyzer found a violation in line '{}': {}", self.line, self.error_type)
     }
 }
 
-pub(crate) enum AnalyzerErrorType<'a> {
+pub(crate) enum AnalyzerErrorType {
     MismatchedArguments {
         operation: Operation,
-        operand: Operand<'a>,
+        operand: Operand,
     },
     RepeatedAcquisition {
-        lock_id: &'a str,
-        thread_id: &'a str,
+        lock_id: i64,
+        thread_id: i64,
     },
     RepeatedRelease {
-        lock_id: &'a str,
-        thread_id: &'a str,
+        lock_id: i64,
+        thread_id: i64,
     },
     ReleasedNonOwningLock {
-        lock_id: &'a str,
-        thread_id: &'a str,
-        owner: &'a str,
+        lock_id: i64,
+        thread_id: i64,
+        owner: i64,
     },
     ReleasedNonAcquiredLock {
-        lock_id: &'a str,
-        thread_id: &'a str,
+        lock_id: i64,
+        thread_id: i64,
     },
     ReadFromUnwrittenMemory {
-        memory_id: &'a str,
-        thread_id: &'a str,
+        memory_id: i64,
+        thread_id: i64,
     },
 }
 
-impl Display for AnalyzerErrorType<'_> {
+impl Display for AnalyzerErrorType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             AnalyzerErrorType::MismatchedArguments { operation, operand } => {
                 write!(f, "Operation '{operation}' expected an operand of type '{operand}'")
             }
             AnalyzerErrorType::RepeatedAcquisition { lock_id, thread_id } => {
-                write!(f, "Thread '{thread_id}' tried to acquire lock '{lock_id}' which was already locked")
+                write!(f, "Thread 'T{thread_id}' tried to acquire lock 'L{lock_id}' which was already locked")
             }
             AnalyzerErrorType::ReleasedNonOwningLock { lock_id, thread_id, owner } => {
-                write!(f, "Thread '{thread_id}' tried to release lock '{lock_id}' which is owned by thread '{owner}'")
+                write!(f, "Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which is owned by thread '{owner}'")
             }
             AnalyzerErrorType::ReadFromUnwrittenMemory { memory_id, thread_id } => {
-                write!(f, "Thread '{thread_id}' tried to read from memory location '{memory_id}' which was not written to")
+                write!(f, "Thread 'T{thread_id}' tried to read from memory location 'V{memory_id}' which was not written to")
             }
             AnalyzerErrorType::RepeatedRelease { lock_id, thread_id } => {
-                write!(f, "Thread '{thread_id}' tried to release lock '{lock_id}' which was already released")
+                write!(f, "Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which was already released")
             }
             AnalyzerErrorType::ReleasedNonAcquiredLock { lock_id, thread_id } => {
-                write!(f, "Thread '{thread_id}' tried to release lock '{lock_id}' which was not previously acquired")
+                write!(f, "Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which was not previously acquired")
             }
         }
     }

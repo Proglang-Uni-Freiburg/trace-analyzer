@@ -4,23 +4,23 @@ use log::{debug};
 use crate::error::{AnalyzerError, AnalyzerErrorType};
 use crate::parser::{Event, Operand, Operation, Trace};
 
-struct Lock<'a> {
-    owner: Option<&'a str>,
+struct Lock {
+    owner: Option<i64>,
     locked: bool,
 }
 
-pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
-    let mut locks: HashMap<&str, Lock> = HashMap::new();
-    let mut memory_locations: HashSet<&str> = HashSet::new();
+pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
+    let mut locks: HashMap<i64, Lock> = HashMap::new();
+    let mut memory_locations: HashSet<i64> = HashSet::new();
     let mut line = 1;
 
     for event in &trace.events {
         match event.operation {
             Operation::Acquire => {
                 // 'acquire' operations only have 'lock_identifier' operands
-                let lock_id = expect_operand(&event, &Operand::LockIdentifier(""), line)?;
+                let lock_id = expect_operand(&event, &Operand::LockIdentifier(0), line)?;
 
-                if let Some(lock) = locks.get(lock_id) {
+                if let Some(lock) = locks.get(&lock_id) {
                     if lock.locked {
                         let error = AnalyzerError {
                             line,
@@ -39,13 +39,13 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                 };
 
                 locks.insert(lock_id, lock);
-                debug!("Thread '{}' acquired lock '{lock_id}' in line {line}", event.thread_identifier);
+                debug!("Thread 'T{}' acquired lock 'L{lock_id}' in line {line}", event.thread_identifier);
             }
             Operation::Release => {
                 // 'release' operations only have 'lock_identifier' operands
-                let lock_id = expect_operand(&event, &Operand::LockIdentifier(""), line)?;
+                let lock_id = expect_operand(&event, &Operand::LockIdentifier(0), line)?;
 
-                match locks.get(lock_id) {
+                match locks.get(&lock_id) {
                     None => {
                         let error = AnalyzerError {
                             line,
@@ -88,18 +88,18 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                         };
 
                         locks.insert(lock_id, updated_lock);
-                        debug!("Thread '{}' released lock '{lock_id}' in line {line}", event.thread_identifier);
+                        debug!("Thread 'T{}' released lock 'L{lock_id}' in line {line}", event.thread_identifier);
                     }
                 }
             }
             Operation::Write => {
-                let memory_id = expect_operand(&event, &Operand::MemoryLocation(""), line)?;
+                let memory_id = expect_operand(&event, &Operand::MemoryLocation(0), line)?;
 
                 memory_locations.insert(memory_id);
-                debug!("Thread '{}' wrote to memory location '{memory_id}' in line {line}", event.thread_identifier);
+                debug!("Thread 'T{}' wrote to memory location 'V{memory_id}' in line {line}", event.thread_identifier);
             }
             Operation::Read => {
-                let memory_id = expect_operand(&event, &Operand::MemoryLocation(""), line)?;
+                let memory_id = expect_operand(&event, &Operand::MemoryLocation(0), line)?;
 
                 if memory_locations.get(&memory_id).is_none() {
                     let error = AnalyzerError {
@@ -112,7 +112,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
                     return Err(error);
                 }
 
-                debug!("Thread '{}' read from memory location '{memory_id}' in line {line}", event.thread_identifier);
+                debug!("Thread 'T{}' read from memory location 'V{memory_id}' in line {line}", event.thread_identifier);
             }
             // other operations are not needed to check well-formedness
             _ => {}
@@ -122,7 +122,7 @@ pub fn analyze_trace<'a>(trace: &'a Trace) -> Result<(), AnalyzerError<'a>> {
     Ok(())
 }
 
-fn expect_operand<'a>(event: &'a Event, operand: &'a Operand, line: usize) -> Result<&'a str, AnalyzerError<'a>> {
+fn expect_operand(event: &Event, operand: &Operand, line: usize) -> Result<i64, AnalyzerError> {
     if discriminant(&event.operand) == discriminant(operand) {
         return Ok(event.operand.id());
     }

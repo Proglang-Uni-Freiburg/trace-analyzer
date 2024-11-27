@@ -3,15 +3,15 @@ use peg::parser;
 use crate::token::Token;
 
 parser!(
-    pub grammar trace_grammar<'a>() for [Token<'a>] {
+    pub grammar trace_grammar<'a>() for [Token] {
         use crate::token::Token::*;
 
-        pub rule parse() -> Trace<'a>
+        pub rule parse() -> Trace
             = events:event()* {
                 Trace { events }
             }
 
-        rule event() -> Event<'a>
+        rule event() -> Event
             = [ThreadIdentifier(thread_identifier)] [Pipe] operation:operation() [LeftParenthesis] operand:operand() [RightParenthesis] [Pipe] [LineNumber(loc)] {
                 Event { thread_identifier, operation, operand, loc }
             }
@@ -25,18 +25,18 @@ parser!(
             / [Fork] { Operation::Fork }
             / [Join] { Operation::Join }
 
-        rule operand() -> Operand<'a>
+        rule operand() -> Operand
             = [MemoryLocation(memory_location)] { Operand::MemoryLocation(memory_location) }
             / [LockIdentifier(lock_identifier)] { Operand::LockIdentifier(lock_identifier) }
             / [ThreadIdentifier(thread_identifier)] { Operand::ThreadIdentifier(thread_identifier) }
     }
 );
 
-pub struct Trace<'a> {
-    pub(crate) events: Vec<Event<'a>>,
+pub struct Trace {
+    pub(crate) events: Vec<Event>,
 }
 
-impl Display for Trace<'_> {
+impl Display for Trace {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for event in &self.events {
             writeln!(f, "{}", event)?;
@@ -46,16 +46,16 @@ impl Display for Trace<'_> {
 }
 
 #[derive(Clone)]
-pub struct Event<'a> {
-    pub(crate) thread_identifier: &'a str,
+pub struct Event {
+    pub(crate) thread_identifier: i64,
     pub(crate) operation: Operation,
-    pub(crate) operand: Operand<'a>,
+    pub(crate) operand: Operand,
     loc: i64,
 }
 
-impl Display for Event<'_> {
+impl Display for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Event[Thread={} Operation={} Operand={} LoC={}]", self.thread_identifier, self.operation, self.operand, self.loc)
+        write!(f, "Event[Thread=T{} Operation={} Operand={} LoC={}]", self.thread_identifier, self.operation, self.operand, self.loc)
     }
 }
 
@@ -85,28 +85,28 @@ impl Display for Operation {
 }
 
 #[derive(Clone)]
-pub enum Operand<'a> {
-    MemoryLocation(&'a str),
-    LockIdentifier(&'a str),
-    ThreadIdentifier(&'a str),
+pub enum Operand {
+    MemoryLocation(i64),
+    LockIdentifier(i64),
+    ThreadIdentifier(i64),
 }
 
-impl Operand<'_> {
-    pub(crate) fn id(&self) -> &str {
+impl Operand {
+    pub(crate) fn id(&self) -> i64 {
         match self {
-            Operand::MemoryLocation(memory_id) => memory_id,
-            Operand::LockIdentifier(lock_id) => lock_id,
-            Operand::ThreadIdentifier(thread_id) => thread_id,
+            Operand::MemoryLocation(memory_id) => *memory_id,
+            Operand::LockIdentifier(lock_id) => *lock_id,
+            Operand::ThreadIdentifier(thread_id) => *thread_id,
         }
     }
 }
 
-impl Display for Operand<'_> {
+impl Display for Operand {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Operand::MemoryLocation(memory_location) => write!(f, "{memory_location}"),
-            Operand::LockIdentifier(lock_identifier) => write!(f, "{lock_identifier}"),
-            Operand::ThreadIdentifier(thread_identifier) => write!(f, "{thread_identifier}")
+            Operand::MemoryLocation(memory_location) => write!(f, "M{memory_location}"),
+            Operand::LockIdentifier(lock_identifier) => write!(f, "V{lock_identifier}"),
+            Operand::ThreadIdentifier(thread_identifier) => write!(f, "T{thread_identifier}")
         }
     }
 }

@@ -12,6 +12,7 @@ mod parser;
 mod arguments;
 mod analyzer;
 mod error;
+mod normalizer;
 
 fn main() {
     SimpleLogger::new().init().unwrap();
@@ -33,7 +34,9 @@ fn main() {
         }
     };
 
-    let trace = match trace_grammar::parse(&tokens) {
+    let normalized_tokens = normalizer::normalize_tokens(&tokens);
+
+    let trace = match trace_grammar::parse(&normalized_tokens) {
         Ok(trace) => trace,
         Err(_) => {
             eprintln!("Parsing failed yikes");
