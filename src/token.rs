@@ -1,8 +1,11 @@
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use logos::{Lexer, Logos};
 
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
-pub enum Token {
+#[logos(error = LexerError)]
+pub(crate) enum Token {
     // single char tokens
     #[token("|")]
     Pipe,
@@ -45,3 +48,21 @@ fn id(lex: &mut Lexer<Token>) -> Option<i64> {
 
     Some(id)
 }
+
+#[derive(Default, Debug, Clone, PartialEq)]
+pub(crate) enum LexerError {
+    #[default]
+    NonAsciiCharacter
+}
+
+impl Display for LexerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexerError::NonAsciiCharacter => {
+                write!(f, "Logos encountered an non-ascii character")
+            }
+        }
+    }
+}
+
+impl Error for LexerError {}

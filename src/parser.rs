@@ -59,7 +59,7 @@ impl Display for Event {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Operation {
     Read,
     Write,
@@ -84,7 +84,7 @@ impl Display for Operation {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Operand {
     MemoryLocation(i64),
     LockIdentifier(i64),

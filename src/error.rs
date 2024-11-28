@@ -1,6 +1,8 @@
-use std::fmt::{Display, Formatter};
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 use crate::parser::{Operand, Operation};
 
+#[derive(Debug)]
 pub struct AnalyzerError {
     pub(crate) line: usize,
     pub(crate) error_type: AnalyzerErrorType,
@@ -12,6 +14,9 @@ impl Display for AnalyzerError {
     }
 }
 
+impl Error for AnalyzerError {}
+
+#[derive(Debug)]
 pub(crate) enum AnalyzerErrorType {
     MismatchedArguments {
         operation: Operation,

@@ -1,15 +1,34 @@
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
+use std::fs::{read_to_string};
 use std::mem::discriminant;
 use log::{debug};
+use logos::Logos;
+use crate::arguments::Arguments;
 use crate::error::{AnalyzerError, AnalyzerErrorType};
-use crate::parser::{Event, Operand, Operation, Trace};
+use crate::normalizer::normalize_tokens;
+use crate::parser::{trace_grammar, Event, Operand, Operation};
+use crate::token::{LexerError, Token};
 
 struct Lock {
     owner: Option<i64>,
     locked: bool,
 }
 
-pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
+pub(crate) fn analyze_trace(arguments: &Arguments) -> Result<(), Box<dyn Error>> {
+    // read source file
+    let input = read_to_string(&arguments.input)?;
+
+    // lex source file
+    let tokens = Token::lexer(&input).collect::<Result<Vec<_>, LexerError>>()?;
+
+    // normalize tokens if needed
+    let tokens = if arguments.normalize { normalize_tokens(tokens) } else { tokens };
+
+    // parse tokens
+    let trace = trace_grammar::parse(&tokens)?;
+
+    // analyze trace
     let mut locks: HashMap<i64, Lock> = HashMap::new();
     let mut memory_locations: HashSet<i64> = HashSet::new();
     let mut line = 1;
@@ -29,7 +48,7 @@ pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
                                 thread_id: event.thread_identifier,
                             },
                         };
-                        return Err(error);
+                        return Err(Box::from(error));
                     }
                 }
 
@@ -54,7 +73,7 @@ pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
                                 thread_id: event.thread_identifier,
                             },
                         };
-                        return Err(error);
+                        return Err(Box::new(error));
                     }
                     Some(lock) => {
                         if !lock.locked {
@@ -65,7 +84,7 @@ pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
                                     thread_id: event.thread_identifier,
                                 },
                             };
-                            return Err(error);
+                            return Err(Box::new(error));
                         }
 
                         if let Some(owner) = lock.owner {
@@ -78,7 +97,7 @@ pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
                                         owner,
                                     },
                                 };
-                                return Err(error);
+                                return Err(Box::new(error));
                             }
                         }
 
@@ -109,7 +128,7 @@ pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
                             thread_id: event.thread_identifier,
                         },
                     };
-                    return Err(error);
+                    return Err(Box::new(error));
                 }
 
                 debug!("Thread 'T{}' read from memory location 'V{memory_id}' in line {line}", event.thread_identifier);
@@ -122,7 +141,7 @@ pub fn analyze_trace(trace: &Trace) -> Result<(), AnalyzerError> {
     Ok(())
 }
 
-fn expect_operand(event: &Event, operand: &Operand, line: usize) -> Result<i64, AnalyzerError> {
+fn expect_operand(event: &Event, operand: &Operand, line: usize) -> Result<i64, Box<dyn Error>> {
     if discriminant(&event.operand) == discriminant(operand) {
         return Ok(event.operand.id());
     }
@@ -135,5 +154,5 @@ fn expect_operand(event: &Event, operand: &Operand, line: usize) -> Result<i64, 
         },
     };
 
-    Err(error)
+    Err(Box::new(error))
 }
