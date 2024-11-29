@@ -15,9 +15,9 @@ struct Lock {
     locked: bool,
 }
 
-pub(crate) fn analyze_trace(arguments: &Arguments) -> Result<(), Box<dyn Error>> {
+pub(crate) fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
     // read source file
-    let input = read_to_string(&arguments.input)?;
+    let input = read_to_string(arguments.input)?;
 
     // lex source file
     let tokens = Token::lexer(&input).collect::<Result<Vec<_>, LexerError>>()?;
