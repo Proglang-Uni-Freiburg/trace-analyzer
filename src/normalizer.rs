@@ -1,6 +1,6 @@
 use crate::token::Token;
 
-pub(crate) fn normalize_tokens(tokens: Vec<Token>) -> Vec<Token> {
+pub fn normalize_tokens(tokens: Vec<Token>) -> Vec<Token> {
     let mut normalized_tokens = Vec::new();
     let mut token_iterator = tokens.iter();
 

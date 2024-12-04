@@ -3,30 +3,29 @@ use std::error::Error;
 use std::fs::{read_to_string};
 use std::mem::discriminant;
 use log::{debug};
-use logos::Logos;
 use crate::arguments::Arguments;
 use crate::error::{AnalyzerError, AnalyzerErrorType};
 use crate::normalizer::normalize_tokens;
-use crate::parser::{trace_grammar, Event, Operand, Operation};
-use crate::token::{LexerError, Token};
+use crate::parser::{parse_tokens, Event, Operand, Operation};
+use crate::token::{tokenize_source};
 
 struct Lock {
     owner: Option<i64>,
     locked: bool,
 }
 
-pub(crate) fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
+pub fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
     // read source file
     let input = read_to_string(arguments.input)?;
 
     // lex source file
-    let tokens = Token::lexer(&input).collect::<Result<Vec<_>, LexerError>>()?;
+    let tokens = tokenize_source(input)?;
 
     // normalize tokens if needed
     let tokens = if arguments.normalize { normalize_tokens(tokens) } else { tokens };
 
     // parse tokens
-    let trace = trace_grammar::parse(&tokens)?;
+    let trace = parse_tokens(tokens)?;
 
     // analyze trace
     let mut locks: HashMap<i64, Lock> = HashMap::new();

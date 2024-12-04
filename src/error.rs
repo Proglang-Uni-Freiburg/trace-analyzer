@@ -17,7 +17,7 @@ impl Display for AnalyzerError {
 impl Error for AnalyzerError {}
 
 #[derive(Debug)]
-pub(crate) enum AnalyzerErrorType {
+pub enum AnalyzerErrorType {
     MismatchedArguments {
         operation: Operation,
         operand: Operand,

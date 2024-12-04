@@ -5,7 +5,7 @@ use logos::{Lexer, Logos};
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
 #[logos(error = LexerError)]
-pub(crate) enum Token {
+pub enum Token {
     // single char tokens
     #[token("|")]
     Pipe,
@@ -42,6 +42,13 @@ pub(crate) enum Token {
     LineNumber(i64),
 }
 
+pub fn tokenize_source(source: String) -> Result<Vec<Token>, Box<dyn Error>> {
+    match Token::lexer(&source).collect::<Result<Vec<Token>, LexerError>>() {
+        Ok(tokens) => Ok(tokens),
+        Err(error) => Err(Box::new(error)),
+    }    
+}
+
 fn id(lex: &mut Lexer<Token>) -> Option<i64> {
     let slice = lex.slice();
     let id = slice[1..slice.len()].parse().ok()?;
@@ -50,7 +57,7 @@ fn id(lex: &mut Lexer<Token>) -> Option<i64> {
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]
-pub(crate) enum LexerError {
+pub enum LexerError {
     #[default]
     NonAsciiCharacter
 }

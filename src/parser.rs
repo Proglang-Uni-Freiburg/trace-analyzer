@@ -1,6 +1,7 @@
-use std::fmt::{Display, Formatter};
-use peg::parser;
 use crate::token::Token;
+use peg::parser;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 parser!(
     pub grammar trace_grammar<'a>() for [Token] {
@@ -32,8 +33,15 @@ parser!(
     }
 );
 
+pub fn parse_tokens(tokens: Vec<Token>) -> Result<Trace, Box<dyn Error>> {
+    match trace_grammar::parse(&tokens) {
+        Ok(trace) => Ok(trace),
+        Err(error) => Err(Box::new(error)),
+    }
+}
+
 pub struct Trace {
-    pub(crate) events: Vec<Event>,
+    pub events: Vec<Event>,
 }
 
 impl Display for Trace {
@@ -47,15 +55,19 @@ impl Display for Trace {
 
 #[derive(Clone)]
 pub struct Event {
-    pub(crate) thread_identifier: i64,
-    pub(crate) operation: Operation,
-    pub(crate) operand: Operand,
+    pub thread_identifier: i64,
+    pub operation: Operation,
+    pub operand: Operand,
     loc: i64,
 }
 
 impl Display for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Event[Thread=T{} Operation={} Operand={} LoC={}]", self.thread_identifier, self.operation, self.operand, self.loc)
+        write!(
+            f,
+            "Event[Thread=T{} Operation={} Operand={} LoC={}]",
+            self.thread_identifier, self.operation, self.operand, self.loc
+        )
     }
 }
 
@@ -92,7 +104,7 @@ pub enum Operand {
 }
 
 impl Operand {
-    pub(crate) fn id(&self) -> i64 {
+    pub fn id(&self) -> i64 {
         match self {
             Operand::MemoryLocation(memory_id) => *memory_id,
             Operand::LockIdentifier(lock_id) => *lock_id,
@@ -106,7 +118,7 @@ impl Display for Operand {
         match self {
             Operand::MemoryLocation(memory_location) => write!(f, "M{memory_location}"),
             Operand::LockIdentifier(lock_identifier) => write!(f, "V{lock_identifier}"),
-            Operand::ThreadIdentifier(thread_identifier) => write!(f, "T{thread_identifier}")
+            Operand::ThreadIdentifier(thread_identifier) => write!(f, "T{thread_identifier}"),
         }
     }
 }
