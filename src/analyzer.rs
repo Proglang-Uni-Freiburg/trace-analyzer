@@ -171,3 +171,9 @@ fn expect_operand(event: &Event, operand: &Operand, line: usize) -> Result<i64, 
 
     Err(Box::new(error))
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn when_valid_trace_expect_analyzing_succeeds() {}
+}

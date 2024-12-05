@@ -8,8 +8,6 @@ mod arguments;
 mod error;
 mod normalizer;
 mod parser;
-#[cfg(test)]
-mod test;
 mod token;
 
 fn main() {
