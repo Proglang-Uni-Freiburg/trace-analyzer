@@ -9,6 +9,8 @@ mod arguments;
 mod analyzer;
 mod error;
 mod normalizer;
+#[cfg(test)]
+mod test;
 
 fn main() {
     SimpleLogger::new().init().unwrap();
