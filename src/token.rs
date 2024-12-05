@@ -1,6 +1,6 @@
+use crate::error::LexerError;
 use logos::{Lexer, Logos};
 use std::error::Error;
-use crate::error::LexerError;
 
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
@@ -59,21 +59,24 @@ fn id(lex: &mut Lexer<Token>) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::read_to_string;
 
     #[test]
-    fn when_valid_characters_expect_lexing_succeeds() {
-        let input = "T6|w(4294967298)|59";
+    fn when_valid_characters_expect_lexing_succeeds() -> Result<(), Box<dyn Error>> {
+        let input = read_to_string("test/valid_trace.std")?;
 
-        let result = tokenize_source(input.to_string());
+        let result = tokenize_source(input);
         assert!(result.is_ok());
 
-        let tokens = result.unwrap();
+        let tokens = result?;
         assert_eq!(tokens.len(), 8);
+
+        Ok(())
     }
 
     #[test]
-    fn when_invalid_characters_expect_lexing_fails() {
-        let input = "T6|w(4294967298)*|59"; // '*' is an invalid character
+    fn when_invalid_characters_expect_lexing_fails() -> Result<(), Box<dyn Error>> {
+        let input = read_to_string("test/unsupported_character.std")?;
 
         let result = tokenize_source(input.to_string());
         assert!(result.is_err());
@@ -83,5 +86,7 @@ mod tests {
             error.to_string(),
             "Logos encountered an non-ascii character"
         );
+
+        Ok(())
     }
 }

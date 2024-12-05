@@ -127,54 +127,44 @@ impl Display for Operand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::token::Token::*;
+    use crate::token::tokenize_source;
+    use std::fs::read_to_string;
+    use crate::normalizer::normalize_tokens;
 
     #[test]
-    fn when_valid_tokens_expect_parsing_succeeds() {
-        let input = vec![
-            ThreadIdentifier(12),
-            Pipe,
-            Write,
-            LeftParenthesis,
-            MemoryLocation(6),
-            RightParenthesis,
-            Pipe,
-            LineNumber(42),
-        ];
+    fn when_valid_tokens_expect_parsing_succeeds() -> Result<(), Box<dyn Error>> {
+        let input = read_to_string("test/valid_trace.std")?;
+        let tokens = tokenize_source(input)?;
+        let tokens = normalize_tokens(tokens);
 
         let expected_event = Event {
-            thread_identifier: 12,
+            thread_identifier: 6,
             operation: Operation::Write,
-            operand: Operand::MemoryLocation(6),
-            loc: 42,
+            operand: Operand::MemoryLocation(4294967298),
+            loc: 59,
         };
 
-        let result = parse_tokens(input);
+        let result = parse_tokens(tokens);
         assert!(result.is_ok());
 
-        let trace = result.unwrap();
+        let trace = result?;
         assert_eq!(trace.events.len(), 1);
         assert_eq!(trace.events[0], expected_event);
+
+        Ok(())
     }
 
     #[test]
-    fn when_invalid_tokens_expect_parsing_fails() {
-        let input = vec![
-            ThreadIdentifier(12),
-            Pipe,
-            Write,
-            Write, // repeated 'Write' token is invalid
-            LeftParenthesis,
-            MemoryLocation(6),
-            LeftParenthesis,
-            Write,
-            LineNumber(42),
-        ];
+    fn when_invalid_tokens_expect_parsing_fails() -> Result<(), Box<dyn Error>> {
+        let input = read_to_string("test/double_write_token.std")?;
+        let tokens = tokenize_source(input)?;
 
-        let result = parse_tokens(input);
+        let result = parse_tokens(tokens);
         assert!(result.is_err());
 
         let error = result.unwrap_err();
         assert_eq!(error.to_string(), "error at 3: expected [LeftParenthesis]");
+
+        Ok(())
     }
 }
