@@ -1,16 +1,16 @@
+use arguments::Arguments;
 use clap::Parser;
 use log::{error, info};
 use simple_logger::SimpleLogger;
-use arguments::Arguments;
 
-mod token;
-mod parser;
-mod arguments;
 mod analyzer;
+mod arguments;
 mod error;
 mod normalizer;
+mod parser;
 #[cfg(test)]
 mod test;
+mod token;
 
 fn main() {
     SimpleLogger::new().init().unwrap();

@@ -1,6 +1,6 @@
+use crate::parser::{Operand, Operation};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use crate::parser::{Operand, Operation};
 
 #[derive(Debug)]
 pub struct AnalyzerError {
@@ -10,7 +10,11 @@ pub struct AnalyzerError {
 
 impl Display for AnalyzerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Analyzer found a violation in line '{}': {}", self.line, self.error_type)
+        write!(
+            f,
+            "Analyzer found a violation in line '{}': {}",
+            self.line, self.error_type
+        )
     }
 }
 
@@ -49,15 +53,25 @@ impl Display for AnalyzerErrorType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             AnalyzerErrorType::MismatchedArguments { operation, operand } => {
-                write!(f, "Operation '{operation}' expected an operand of type '{operand}'")
+                write!(
+                    f,
+                    "Operation '{operation}' expected an operand of type '{operand}'"
+                )
             }
             AnalyzerErrorType::RepeatedAcquisition { lock_id, thread_id } => {
                 write!(f, "Thread 'T{thread_id}' tried to acquire lock 'L{lock_id}' which was already locked")
             }
-            AnalyzerErrorType::ReleasedNonOwningLock { lock_id, thread_id, owner } => {
+            AnalyzerErrorType::ReleasedNonOwningLock {
+                lock_id,
+                thread_id,
+                owner,
+            } => {
                 write!(f, "Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which is owned by thread '{owner}'")
             }
-            AnalyzerErrorType::ReadFromUnwrittenMemory { memory_id, thread_id } => {
+            AnalyzerErrorType::ReadFromUnwrittenMemory {
+                memory_id,
+                thread_id,
+            } => {
                 write!(f, "Thread 'T{thread_id}' tried to read from memory location 'V{memory_id}' which was not written to")
             }
             AnalyzerErrorType::RepeatedRelease { lock_id, thread_id } => {
@@ -69,3 +83,21 @@ impl Display for AnalyzerErrorType {
         }
     }
 }
+
+#[derive(Default, Debug, Clone, PartialEq)]
+pub enum LexerError {
+    #[default]
+    NonAsciiCharacter,
+}
+
+impl Display for LexerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexerError::NonAsciiCharacter => {
+                write!(f, "Logos encountered an non-ascii character")
+            }
+        }
+    }
+}
+
+impl Error for LexerError {}

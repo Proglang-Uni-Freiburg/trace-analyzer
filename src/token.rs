@@ -1,6 +1,6 @@
 use logos::{Lexer, Logos};
 use std::error::Error;
-use std::fmt::{Display, Formatter};
+use crate::error::LexerError;
 
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
@@ -55,21 +55,3 @@ fn id(lex: &mut Lexer<Token>) -> Option<i64> {
 
     Some(id)
 }
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub enum LexerError {
-    #[default]
-    NonAsciiCharacter,
-}
-
-impl Display for LexerError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LexerError::NonAsciiCharacter => {
-                write!(f, "Logos encountered an non-ascii character")
-            }
-        }
-    }
-}
-
-impl Error for LexerError {}

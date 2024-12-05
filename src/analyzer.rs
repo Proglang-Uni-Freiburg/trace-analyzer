@@ -1,13 +1,13 @@
-use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::fs::{read_to_string};
-use std::mem::discriminant;
-use log::{debug};
 use crate::arguments::Arguments;
 use crate::error::{AnalyzerError, AnalyzerErrorType};
 use crate::normalizer::normalize_tokens;
 use crate::parser::{parse_tokens, Event, Operand, Operation};
-use crate::token::{tokenize_source};
+use crate::token::tokenize_source;
+use log::debug;
+use std::collections::{HashMap, HashSet};
+use std::error::Error;
+use std::fs::read_to_string;
+use std::mem::discriminant;
 
 struct Lock {
     owner: Option<i64>,
@@ -22,7 +22,11 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
     let tokens = tokenize_source(input)?;
 
     // normalize tokens if needed
-    let tokens = if arguments.normalize { normalize_tokens(tokens) } else { tokens };
+    let tokens = if arguments.normalize {
+        normalize_tokens(tokens)
+    } else {
+        tokens
+    };
 
     // parse tokens
     let trace = parse_tokens(tokens)?;
@@ -57,7 +61,10 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
                 };
 
                 locks.insert(lock_id, lock);
-                debug!("Thread 'T{}' acquired lock 'L{lock_id}' in line {line}", event.thread_identifier);
+                debug!(
+                    "Thread 'T{}' acquired lock 'L{lock_id}' in line {line}",
+                    event.thread_identifier
+                );
             }
             Operation::Release => {
                 // 'release' operations only have 'lock_identifier' operands
@@ -106,7 +113,10 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
                         };
 
                         locks.insert(lock_id, updated_lock);
-                        debug!("Thread 'T{}' released lock 'L{lock_id}' in line {line}", event.thread_identifier);
+                        debug!(
+                            "Thread 'T{}' released lock 'L{lock_id}' in line {line}",
+                            event.thread_identifier
+                        );
                     }
                 }
             }
@@ -114,7 +124,10 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
                 let memory_id = expect_operand(&event, &Operand::MemoryLocation(0), line)?;
 
                 memory_locations.insert(memory_id);
-                debug!("Thread 'T{}' wrote to memory location 'V{memory_id}' in line {line}", event.thread_identifier);
+                debug!(
+                    "Thread 'T{}' wrote to memory location 'V{memory_id}' in line {line}",
+                    event.thread_identifier
+                );
             }
             Operation::Read => {
                 let memory_id = expect_operand(&event, &Operand::MemoryLocation(0), line)?;
@@ -130,7 +143,10 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
                     return Err(Box::new(error));
                 }
 
-                debug!("Thread 'T{}' read from memory location 'V{memory_id}' in line {line}", event.thread_identifier);
+                debug!(
+                    "Thread 'T{}' read from memory location 'V{memory_id}' in line {line}",
+                    event.thread_identifier
+                );
             }
             // other operations are not needed to check well-formedness
             _ => {}
