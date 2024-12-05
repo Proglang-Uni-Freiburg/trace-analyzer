@@ -1,6 +1,6 @@
+use logos::{Lexer, Logos};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use logos::{Lexer, Logos};
 
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
@@ -46,7 +46,7 @@ pub fn tokenize_source(source: String) -> Result<Vec<Token>, Box<dyn Error>> {
     match Token::lexer(&source).collect::<Result<Vec<Token>, LexerError>>() {
         Ok(tokens) => Ok(tokens),
         Err(error) => Err(Box::new(error)),
-    }    
+    }
 }
 
 fn id(lex: &mut Lexer<Token>) -> Option<i64> {
@@ -59,7 +59,7 @@ fn id(lex: &mut Lexer<Token>) -> Option<i64> {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub enum LexerError {
     #[default]
-    NonAsciiCharacter
+    NonAsciiCharacter,
 }
 
 impl Display for LexerError {
@@ -73,3 +73,29 @@ impl Display for LexerError {
 }
 
 impl Error for LexerError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn when_valid_tokens_expect_lexing_succeeds() {
+        let input = "T6|w(4294967298)|59";
+        let result = tokenize_source(input.to_string());
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().len(), 8);
+    }
+
+    #[test]
+    fn when_invalid_tokens_expect_lexing_fails() {
+        let input = "T6|w(4294967298)*|59";
+        let result = tokenize_source(input.to_string());
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Logos encountered an non-ascii character"
+        );
+    }
+}
