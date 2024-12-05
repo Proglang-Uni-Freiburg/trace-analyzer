@@ -40,6 +40,7 @@ pub fn parse_tokens(tokens: Vec<Token>) -> Result<Trace, Box<dyn Error>> {
     }
 }
 
+#[derive(Debug)]
 pub struct Trace {
     pub events: Vec<Event>,
 }
@@ -53,7 +54,8 @@ impl Display for Trace {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
+#[derive(Debug)]
 pub struct Event {
     pub thread_identifier: i64,
     pub operation: Operation,
@@ -71,7 +73,7 @@ impl Display for Event {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
     Read,
     Write,
@@ -96,7 +98,7 @@ impl Display for Operation {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operand {
     MemoryLocation(i64),
     LockIdentifier(i64),
@@ -120,5 +122,61 @@ impl Display for Operand {
             Operand::LockIdentifier(lock_identifier) => write!(f, "V{lock_identifier}"),
             Operand::ThreadIdentifier(thread_identifier) => write!(f, "T{thread_identifier}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::token;
+    use token::Token::*;
+
+    #[test]
+    fn when_valid_tokens_expect_parsing_succeeds() {
+        let input = vec![
+            ThreadIdentifier(12),
+            Pipe,
+            Write,
+            LeftParenthesis,
+            MemoryLocation(6),
+            RightParenthesis,
+            Pipe,
+            LineNumber(42),
+        ];
+
+        let expected_event = Event {
+            thread_identifier: 12,
+            operation: Operation::Write,
+            operand: Operand::MemoryLocation(6),
+            loc: 42,
+        };
+
+        let result = parse_tokens(input);
+        assert!(result.is_ok());
+        
+        let trace = result.unwrap();
+        assert_eq!(trace.events.len(), 1);
+        assert_eq!(trace.events[0], expected_event);
+    }
+
+    #[test]
+    fn when_invalid_tokens_expect_parsing_fails() {
+        let input = vec![
+            ThreadIdentifier(12),
+            Pipe,
+            Write,
+            Write, // repeated 'Write' token is invalid
+            LeftParenthesis,
+            MemoryLocation(6),
+            LeftParenthesis,
+            Pipe,
+            LineNumber(42),
+        ];
+
+        let result = parse_tokens(input);
+        assert!(result.is_err());
+
+        let error = result.unwrap_err();
+        assert_eq!(error.to_string(), "error at 3: expected [LeftParenthesis]");
     }
 }
