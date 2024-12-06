@@ -157,8 +157,6 @@ mod tests {
         let input = read_to_string("test/double_write_token.std")?;
         let tokens = tokenize_source(input, false)?;
 
-        tokens.iter().for_each(|token| {println!("{:?}", token)});
-
         let result = parse_tokens(tokens);
         assert!(result.is_err());
 
