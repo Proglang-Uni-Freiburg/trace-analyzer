@@ -1,4 +1,4 @@
-use crate::token::Token;
+use crate::lexer::Token;
 
 pub fn normalize_tokens(tokens: Vec<Token>) -> Vec<Token> {
     let mut normalized_tokens = Vec::new();

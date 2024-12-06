@@ -1,11 +1,11 @@
-use crate::token::Token;
+use crate::lexer::Token;
 use peg::parser;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 parser!(
     pub grammar trace_grammar<'a>() for [Token] {
-        use crate::token::Token::*;
+        use crate::lexer::Token::*;
 
         pub rule parse() -> Trace
             = events:event()* {
@@ -117,8 +117,8 @@ impl Operand {
 impl Display for Operand {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Operand::MemoryLocation(memory_location) => write!(f, "M{memory_location}"),
-            Operand::LockIdentifier(lock_identifier) => write!(f, "V{lock_identifier}"),
+            Operand::MemoryLocation(memory_location) => write!(f, "V{memory_location}"),
+            Operand::LockIdentifier(lock_identifier) => write!(f, "L{lock_identifier}"),
             Operand::ThreadIdentifier(thread_identifier) => write!(f, "T{thread_identifier}"),
         }
     }
@@ -127,11 +127,11 @@ impl Display for Operand {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::token::tokenize_source;
+    use crate::lexer::tokenize_source;
     use std::fs::read_to_string;
 
     #[test]
-    fn when_valid_tokens_expect_parsing_succeeds() -> Result<(), Box<dyn Error>> {
+    fn succeed_when_parsing_valid_tokens() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/valid_trace.std")?;
         let tokens = tokenize_source(input, true)?;
 
@@ -146,14 +146,14 @@ mod tests {
         assert!(result.is_ok());
 
         let trace = result?;
-        assert_eq!(trace.events.len(), 1);
+        assert_eq!(trace.events.len(), 7);
         assert_eq!(trace.events[0], expected_event);
 
         Ok(())
     }
 
     #[test]
-    fn when_invalid_tokens_expect_parsing_fails() -> Result<(), Box<dyn Error>> {
+    fn fail_when_parsing_invalid_tokens() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/double_write_token.std")?;
         let tokens = tokenize_source(input, false)?;
 

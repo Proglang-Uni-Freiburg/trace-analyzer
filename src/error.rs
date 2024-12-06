@@ -1,4 +1,3 @@
-use crate::parser::{Operand, Operation};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -20,12 +19,8 @@ impl Display for AnalyzerError {
 
 impl Error for AnalyzerError {}
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AnalyzerErrorType {
-    MismatchedArguments {
-        operation: Operation,
-        operand: Operand,
-    },
     RepeatedAcquisition {
         lock_id: i64,
         thread_id: i64,
@@ -52,12 +47,6 @@ pub enum AnalyzerErrorType {
 impl Display for AnalyzerErrorType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            AnalyzerErrorType::MismatchedArguments { operation, operand } => {
-                write!(
-                    f,
-                    "Operation '{operation}' expected an operand of type '{operand}'"
-                )
-            }
             AnalyzerErrorType::RepeatedAcquisition { lock_id, thread_id } => {
                 write!(f, "Thread 'T{thread_id}' tried to acquire lock 'L{lock_id}' which was already locked")
             }

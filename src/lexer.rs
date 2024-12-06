@@ -69,20 +69,20 @@ mod tests {
     use std::fs::read_to_string;
 
     #[test]
-    fn when_valid_characters_expect_lexing_succeeds() -> Result<(), Box<dyn Error>> {
+    fn succeed_when_lexing_valid_chars() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/valid_trace.std")?;
 
         let result = tokenize_source(input, false);
         assert!(result.is_ok());
 
         let tokens = result?;
-        assert_eq!(tokens.len(), 8);
+        assert_eq!(tokens.len(), 56); // 8 tokens per line times 7 lines
 
         Ok(())
     }
 
     #[test]
-    fn when_invalid_characters_expect_lexing_fails() -> Result<(), Box<dyn Error>> {
+    fn fail_when_lexing_invalid_chars() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/unsupported_character.std")?;
 
         let result = tokenize_source(input.to_string(), false);
