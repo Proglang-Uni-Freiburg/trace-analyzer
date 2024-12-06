@@ -1,7 +1,7 @@
 use crate::error::LexerError;
+use crate::normalizer::normalize_tokens;
 use logos::{Lexer, Logos};
 use std::error::Error;
-use crate::normalizer::normalize_tokens;
 
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
