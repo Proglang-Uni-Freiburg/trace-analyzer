@@ -1,6 +1,7 @@
 use crate::error::LexerError;
 use logos::{Lexer, Logos};
 use std::error::Error;
+use crate::normalizer::normalize_tokens;
 
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
@@ -42,10 +43,16 @@ pub enum Token {
     LineNumber(i64),
 }
 
-pub fn tokenize_source(source: String) -> Result<Vec<Token>, Box<dyn Error>> {
-    match Token::lexer(&source).collect::<Result<Vec<Token>, LexerError>>() {
-        Ok(tokens) => Ok(tokens),
-        Err(error) => Err(Box::new(error)),
+pub fn tokenize_source(source: String, normalize: bool) -> Result<Vec<Token>, Box<dyn Error>> {
+    let tokens = match Token::lexer(&source).collect::<Result<Vec<Token>, LexerError>>() {
+        Ok(tokens) => tokens,
+        Err(error) => return Err(Box::new(error)),
+    };
+
+    if normalize {
+        Ok(normalize_tokens(tokens))
+    } else {
+        Ok(tokens)
     }
 }
 
@@ -65,7 +72,7 @@ mod tests {
     fn when_valid_characters_expect_lexing_succeeds() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/valid_trace.std")?;
 
-        let result = tokenize_source(input);
+        let result = tokenize_source(input, false);
         assert!(result.is_ok());
 
         let tokens = result?;
@@ -78,7 +85,7 @@ mod tests {
     fn when_invalid_characters_expect_lexing_fails() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/unsupported_character.std")?;
 
-        let result = tokenize_source(input.to_string());
+        let result = tokenize_source(input.to_string(), false);
         assert!(result.is_err());
 
         let error = result.unwrap_err();

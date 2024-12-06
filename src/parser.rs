@@ -129,13 +129,11 @@ mod tests {
     use super::*;
     use crate::token::tokenize_source;
     use std::fs::read_to_string;
-    use crate::normalizer::normalize_tokens;
 
     #[test]
     fn when_valid_tokens_expect_parsing_succeeds() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/valid_trace.std")?;
-        let tokens = tokenize_source(input)?;
-        let tokens = normalize_tokens(tokens);
+        let tokens = tokenize_source(input, true)?;
 
         let expected_event = Event {
             thread_identifier: 6,
@@ -157,7 +155,9 @@ mod tests {
     #[test]
     fn when_invalid_tokens_expect_parsing_fails() -> Result<(), Box<dyn Error>> {
         let input = read_to_string("test/double_write_token.std")?;
-        let tokens = tokenize_source(input)?;
+        let tokens = tokenize_source(input, false)?;
+
+        tokens.iter().for_each(|token| {println!("{:?}", token)});
 
         let result = parse_tokens(tokens);
         assert!(result.is_err());

@@ -1,6 +1,5 @@
 use crate::arguments::Arguments;
 use crate::error::{AnalyzerError, AnalyzerErrorType};
-use crate::normalizer::normalize_tokens;
 use crate::parser::{parse_tokens, Event, Operand, Operation};
 use crate::token::tokenize_source;
 use log::debug;
@@ -19,14 +18,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Box<dyn Error>> {
     let input = read_to_string(arguments.input)?;
 
     // lex source file
-    let tokens = tokenize_source(input)?;
-
-    // normalize tokens if needed
-    let tokens = if arguments.normalize {
-        normalize_tokens(tokens)
-    } else {
-        tokens
-    };
+    let tokens = tokenize_source(input, arguments.normalize)?;
 
     // parse tokens
     let trace = parse_tokens(tokens)?;
