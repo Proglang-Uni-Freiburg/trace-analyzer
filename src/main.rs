@@ -6,15 +6,15 @@ use simple_logger::SimpleLogger;
 mod analyzer;
 mod arguments;
 mod error;
+mod lexer;
 mod normalizer;
 mod parser;
-mod lexer;
 
 fn main() {
     SimpleLogger::new().init().unwrap();
     let arguments = Arguments::parse();
 
-    match analyzer::analyze_trace(arguments.input, arguments.normalize) {
+    match analyzer::analyze_trace(arguments) {
         Ok(_) => info!("Analyzer could not find a violation"),
         Err(error) => error!("{error}"),
     }

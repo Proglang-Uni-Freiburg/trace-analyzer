@@ -1,26 +1,36 @@
-use crate::error::{AnalyzerError, AnalyzerErrorType};
+use crate::arguments::Arguments;
+use crate::error::AnalyzerError;
 use crate::lexer::tokenize_source;
 use crate::parser::{parse_tokens, Operation};
 use log::debug;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
 use std::fs::read_to_string;
-use std::path::Path;
 
 struct Lock {
     owner: Option<i64>,
     locked: bool,
 }
 
-pub fn analyze_trace<S: AsRef<Path>>(input: S, normalize: bool) -> Result<(), Box<dyn Error>> {
+pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
     // read source file
-    let input = read_to_string(input)?;
+    let input = match read_to_string(arguments.input) {
+        Ok(input) => input,
+        Err(error) => {
+            return Err(AnalyzerError::from(error));
+        }
+    };
 
     // lex source file
-    let tokens = tokenize_source(input, normalize)?;
+    let tokens = match tokenize_source(input, arguments.normalize) {
+        Ok(tokens) => tokens,
+        Err(error) => return Err(AnalyzerError::from(error)),
+    };
 
     // parse tokens
-    let trace = parse_tokens(tokens)?;
+    let trace = match parse_tokens(tokens) {
+        Ok(trace) => trace,
+        Err(error) => return Err(AnalyzerError::from(error)),
+    };
 
     // analyze trace
     let mut locks: HashMap<i64, Lock> = HashMap::new();
@@ -34,14 +44,12 @@ pub fn analyze_trace<S: AsRef<Path>>(input: S, normalize: bool) -> Result<(), Bo
 
                 if let Some(lock) = locks.get(&lock_id) {
                     if lock.locked {
-                        let error = AnalyzerError {
+                        let error = AnalyzerError::RepeatedAcquisition {
                             line,
-                            error_type: AnalyzerErrorType::RepeatedAcquisition {
-                                lock_id,
-                                thread_id: event.thread_identifier,
-                            },
+                            lock_id,
+                            thread_id: event.thread_identifier,
                         };
-                        return Err(Box::from(error));
+                        return Err(error);
                     }
                 }
 
@@ -61,38 +69,32 @@ pub fn analyze_trace<S: AsRef<Path>>(input: S, normalize: bool) -> Result<(), Bo
 
                 match locks.get(&lock_id) {
                     None => {
-                        let error = AnalyzerError {
+                        let error = AnalyzerError::ReleasedNonAcquiredLock {
                             line,
-                            error_type: AnalyzerErrorType::ReleasedNonAcquiredLock {
-                                lock_id,
-                                thread_id: event.thread_identifier,
-                            },
+                            lock_id,
+                            thread_id: event.thread_identifier,
                         };
-                        return Err(Box::new(error));
+                        return Err(error);
                     }
                     Some(lock) => {
                         if !lock.locked {
-                            let error = AnalyzerError {
+                            let error = AnalyzerError::RepeatedRelease {
                                 line,
-                                error_type: AnalyzerErrorType::RepeatedRelease {
-                                    lock_id,
-                                    thread_id: event.thread_identifier,
-                                },
+                                lock_id,
+                                thread_id: event.thread_identifier,
                             };
-                            return Err(Box::new(error));
+                            return Err(error);
                         }
 
                         if let Some(owner) = lock.owner {
                             if owner != event.thread_identifier {
-                                let error = AnalyzerError {
+                                let error = AnalyzerError::ReleasedNonOwningLock {
                                     line,
-                                    error_type: AnalyzerErrorType::ReleasedNonOwningLock {
-                                        lock_id,
-                                        thread_id: event.thread_identifier,
-                                        owner,
-                                    },
+                                    lock_id,
+                                    thread_id: event.thread_identifier,
+                                    owner,
                                 };
-                                return Err(Box::new(error));
+                                return Err(error);
                             }
                         }
 
@@ -122,14 +124,12 @@ pub fn analyze_trace<S: AsRef<Path>>(input: S, normalize: bool) -> Result<(), Bo
                 let memory_id = event.operand.id();
 
                 if memory_locations.get(&memory_id).is_none() {
-                    let error = AnalyzerError {
+                    let error = AnalyzerError::ReadFromUnwrittenMemory {
                         line,
-                        error_type: AnalyzerErrorType::ReadFromUnwrittenMemory {
-                            memory_id,
-                            thread_id: event.thread_identifier,
-                        },
+                        memory_id,
+                        thread_id: event.thread_identifier,
                     };
-                    return Err(Box::new(error));
+                    return Err(error);
                 }
 
                 debug!(
@@ -148,13 +148,19 @@ pub fn analyze_trace<S: AsRef<Path>>(input: S, normalize: bool) -> Result<(), Bo
 #[cfg(test)]
 mod tests {
     use crate::analyzer::analyze_trace;
-    use crate::error::{AnalyzerError, AnalyzerErrorType};
+    use crate::arguments::Arguments;
+    use crate::error::AnalyzerError;
     use std::error::Error;
 
     #[test]
     fn succeed_when_analyzing_valid_trace() -> Result<(), Box<dyn Error>> {
-        let result = analyze_trace("test/valid_trace.std", true);
+        // arrange
+        let arguments = Arguments::new("test/valid_trace.std", true);
 
+        // act
+        let result = analyze_trace(arguments);
+
+        // assert
         assert!(result.is_ok());
 
         Ok(())
@@ -162,91 +168,138 @@ mod tests {
 
     #[test]
     fn fail_when_acquire_lock_repeatedly() -> Result<(), Box<dyn Error>> {
-        let result = analyze_trace("test/repeated_lock_acquisition.std", true);
-        assert!(result.is_err());
+        // arrange
+        let arguments = Arguments::new("test/repeated_lock_acquisition.std", true);
 
-        let error = result.unwrap_err().downcast::<AnalyzerError>()?;
-        assert_eq!(error.line, 7);
-        assert_eq!(
-            error.error_type,
-            AnalyzerErrorType::RepeatedAcquisition {
-                lock_id: 9,
-                thread_id: 7
+        // act
+        let error = analyze_trace(arguments).unwrap_err();
+
+        // assert
+        assert!(match error {
+            AnalyzerError::RepeatedAcquisition {
+                line,
+                lock_id,
+                thread_id,
+            } => {
+                assert_eq!(line, 7);
+                assert_eq!(lock_id, 9);
+                assert_eq!(thread_id, 7);
+
+                true
             }
-        );
+            _ => false,
+        });
 
         Ok(())
     }
 
     #[test]
     fn fail_when_release_lock_repeatedly() -> Result<(), Box<dyn Error>> {
-        let result = analyze_trace("test/repeated_lock_release.std", true);
-        assert!(result.is_err());
+        // arrange
+        let arguments = Arguments::new("test/repeated_lock_release.std", true);
 
-        let error = result.unwrap_err().downcast::<AnalyzerError>()?;
-        assert_eq!(error.line, 8);
-        assert_eq!(
-            error.error_type,
-            AnalyzerErrorType::RepeatedRelease {
-                lock_id: 9,
-                thread_id: 6
+        // act
+        let error = analyze_trace(arguments).unwrap_err();
+
+        // assert
+
+        assert!(match error {
+            AnalyzerError::RepeatedRelease {
+                line,
+                lock_id,
+                thread_id,
+            } => {
+                assert_eq!(line, 8);
+                assert_eq!(lock_id, 9);
+                assert_eq!(thread_id, 6);
+
+                true
             }
-        );
+            _ => false,
+        });
 
         Ok(())
     }
 
     #[test]
     fn fail_when_release_non_owning_lock() -> Result<(), Box<dyn Error>> {
-        let result = analyze_trace("test/release_non_owning_lock.std", true);
-        assert!(result.is_err());
+        // arrange
+        let arguments = Arguments::new("test/release_non_owning_lock.std", true);
 
-        let error = result.unwrap_err().downcast::<AnalyzerError>()?;
-        assert_eq!(error.line, 7);
-        assert_eq!(
-            error.error_type,
-            AnalyzerErrorType::ReleasedNonOwningLock {
-                owner: 6,
-                lock_id: 9,
-                thread_id: 7
+        // act
+        let error = analyze_trace(arguments).unwrap_err();
+
+        // assert
+        assert!(match error {
+            AnalyzerError::ReleasedNonOwningLock {
+                line,
+                lock_id,
+                thread_id,
+                owner,
+            } => {
+                assert_eq!(line, 7);
+                assert_eq!(lock_id, 9);
+                assert_eq!(thread_id, 7);
+                assert_eq!(owner, 6);
+
+                true
             }
-        );
+            _ => false,
+        });
 
         Ok(())
     }
 
     #[test]
     fn fail_when_release_not_acquired_lock() -> Result<(), Box<dyn Error>> {
-        let result = analyze_trace("test/release_non_acquired_lock.std", true);
-        assert!(result.is_err());
+        // arrange
+        let arguments = Arguments::new("test/release_non_acquired_lock.std", true);
 
-        let error = result.unwrap_err().downcast::<AnalyzerError>()?;
-        assert_eq!(error.line, 6);
-        assert_eq!(
-            error.error_type,
-            AnalyzerErrorType::ReleasedNonAcquiredLock {
-                lock_id: 9,
-                thread_id: 7
+        // act
+        let error = analyze_trace(arguments).unwrap_err();
+
+        // assert
+        assert!(match error {
+            AnalyzerError::ReleasedNonAcquiredLock {
+                line,
+                lock_id,
+                thread_id,
+            } => {
+                assert_eq!(line, 6);
+                assert_eq!(lock_id, 9);
+                assert_eq!(thread_id, 7);
+
+                true
             }
-        );
+            _ => false,
+        });
 
         Ok(())
     }
 
     #[test]
     fn fail_when_read_from_unwritten_memory() -> Result<(), Box<dyn Error>> {
-        let result = analyze_trace("test/read_from_unwritten_memory.std", true);
-        assert!(result.is_err());
+        // arrange
+        let arguments = Arguments::new("test/read_from_unwritten_memory.std", true);
 
-        let error = result.unwrap_err().downcast::<AnalyzerError>()?;
-        assert_eq!(error.line, 1);
-        assert_eq!(
-            error.error_type,
-            AnalyzerErrorType::ReadFromUnwrittenMemory {
-                memory_id: 4294967298,
-                thread_id: 6
+        // act
+        let error = analyze_trace(arguments).unwrap_err();
+
+        // assert
+        assert!(match error {
+            AnalyzerError::ReadFromUnwrittenMemory {
+                line,
+                memory_id,
+                thread_id,
+            } => {
+                assert_eq!(line, 1);
+                assert_eq!(memory_id, 4294967298);
+                assert_eq!(thread_id, 6);
+
+                true
             }
-        );
+            _ => false,
+        });
 
         Ok(())
     }

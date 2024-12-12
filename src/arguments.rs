@@ -10,3 +10,12 @@ pub struct Arguments {
     #[arg(short, long)]
     pub normalize: bool,
 }
+
+impl Arguments {
+    pub fn new<S: Into<String>>(input: S, normalize: bool) -> Self {
+        Self {
+            input: input.into(),
+            normalize,
+        }
+    }
+}

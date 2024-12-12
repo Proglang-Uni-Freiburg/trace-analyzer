@@ -1,7 +1,6 @@
-use crate::error::LexerError;
+use crate::error::{AnalyzerError, LexerError};
 use crate::normalizer::normalize_tokens;
 use logos::{Lexer, Logos};
-use std::error::Error;
 
 #[derive(Logos, Debug, Copy, Clone)]
 #[logos(skip r"[ \r\t\n\f]+")]
@@ -43,10 +42,10 @@ pub enum Token {
     LineNumber(i64),
 }
 
-pub fn tokenize_source(source: String, normalize: bool) -> Result<Vec<Token>, Box<dyn Error>> {
+pub fn tokenize_source(source: String, normalize: bool) -> Result<Vec<Token>, AnalyzerError> {
     let tokens = match Token::lexer(&source).collect::<Result<Vec<Token>, LexerError>>() {
         Ok(tokens) => tokens,
-        Err(error) => return Err(Box::new(error)),
+        Err(error) => return Err(AnalyzerError::from(error)),
     };
 
     if normalize {
@@ -69,30 +68,32 @@ mod tests {
     use std::fs::read_to_string;
 
     #[test]
-    fn succeed_when_lexing_valid_chars() -> Result<(), Box<dyn Error>> {
+    fn succeed_when_lexing_valid_chars() -> Result<(), AnalyzerError> {
+        // arrange
         let input = read_to_string("test/valid_trace.std")?;
 
-        let result = tokenize_source(input, false);
-        assert!(result.is_ok());
+        // act
+        let tokens = tokenize_source(input, false)?;
 
-        let tokens = result?;
+        // assert
         assert_eq!(tokens.len(), 56); // 8 tokens per line times 7 lines
 
         Ok(())
     }
 
     #[test]
-    fn fail_when_lexing_invalid_chars() -> Result<(), Box<dyn Error>> {
+    fn fail_when_lexing_invalid_chars() -> Result<(), AnalyzerError> {
+        // arrange
         let input = read_to_string("test/unsupported_character.std")?;
 
-        let result = tokenize_source(input.to_string(), false);
-        assert!(result.is_err());
+        // act
+        let error = tokenize_source(input.to_string(), false).unwrap_err();
 
-        let error = result.unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "Logos encountered an non-ascii character"
-        );
+        // assert
+        assert!(match error {
+            AnalyzerError::LexerError(LexerError::NonAsciiCharacter) => true,
+            _ => false,
+        });
 
         Ok(())
     }

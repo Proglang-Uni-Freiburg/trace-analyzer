@@ -1,6 +1,6 @@
+use crate::error::AnalyzerError;
 use crate::lexer::Token;
 use peg::parser;
-use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 parser!(
@@ -33,10 +33,10 @@ parser!(
     }
 );
 
-pub fn parse_tokens(tokens: Vec<Token>) -> Result<Trace, Box<dyn Error>> {
+pub fn parse_tokens(tokens: Vec<Token>) -> Result<Trace, AnalyzerError> {
     match trace_grammar::parse(&tokens) {
         Ok(trace) => Ok(trace),
-        Err(error) => Err(Box::new(error)),
+        Err(error) => Err(AnalyzerError::from(error)),
     }
 }
 
@@ -131,10 +131,10 @@ mod tests {
     use std::fs::read_to_string;
 
     #[test]
-    fn succeed_when_parsing_valid_tokens() -> Result<(), Box<dyn Error>> {
+    fn succeed_when_parsing_valid_tokens() -> Result<(), AnalyzerError> {
+        // arrange
         let input = read_to_string("test/valid_trace.std")?;
         let tokens = tokenize_source(input, true)?;
-
         let expected_event = Event {
             thread_identifier: 6,
             operation: Operation::Write,
@@ -142,10 +142,10 @@ mod tests {
             loc: 59,
         };
 
-        let result = parse_tokens(tokens);
-        assert!(result.is_ok());
+        // act
+        let trace = parse_tokens(tokens)?;
 
-        let trace = result?;
+        // assert
         assert_eq!(trace.events.len(), 7);
         assert_eq!(trace.events[0], expected_event);
 
@@ -153,15 +153,27 @@ mod tests {
     }
 
     #[test]
-    fn fail_when_parsing_invalid_tokens() -> Result<(), Box<dyn Error>> {
+    fn fail_when_parsing_invalid_tokens() -> Result<(), AnalyzerError> {
+        // arrange
         let input = read_to_string("test/double_write_token.std")?;
         let tokens = tokenize_source(input, false)?;
 
-        let result = parse_tokens(tokens);
-        assert!(result.is_err());
+        // act
+        let error = parse_tokens(tokens).unwrap_err();
 
-        let error = result.unwrap_err();
-        assert_eq!(error.to_string(), "error at 3: expected [LeftParenthesis]");
+        // assert
+        assert!(match error {
+            AnalyzerError::ParserError(inner) => {
+                assert_eq!(inner.location, 3);
+                assert_eq!(
+                    inner.expected.tokens().collect::<Vec<_>>(),
+                    vec!["[LeftParenthesis]"]
+                );
+
+                true
+            }
+            _ => false,
+        });
 
         Ok(())
     }
