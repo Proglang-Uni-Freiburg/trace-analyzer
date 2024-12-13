@@ -15,9 +15,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
     // read source file
     let input = match read_to_string(arguments.input) {
         Ok(input) => input,
-        Err(error) => {
-            return Err(AnalyzerError::from(error));
-        }
+        Err(error) => return Err(AnalyzerError::from(error)),
     };
 
     // lex source file
@@ -150,10 +148,9 @@ mod tests {
     use crate::analyzer::analyze_trace;
     use crate::arguments::Arguments;
     use crate::error::AnalyzerError;
-    use std::error::Error;
 
     #[test]
-    fn succeed_when_analyzing_valid_trace() -> Result<(), Box<dyn Error>> {
+    fn succeed_when_analyzing_valid_trace() -> Result<(), AnalyzerError> {
         // arrange
         let arguments = Arguments::new("test/valid_trace.std", true);
 
@@ -167,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_when_acquire_lock_repeatedly() -> Result<(), Box<dyn Error>> {
+    fn fail_when_acquire_lock_repeatedly() -> Result<(), AnalyzerError> {
         // arrange
         let arguments = Arguments::new("test/repeated_lock_acquisition.std", true);
 
@@ -194,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_when_release_lock_repeatedly() -> Result<(), Box<dyn Error>> {
+    fn fail_when_release_lock_repeatedly() -> Result<(), AnalyzerError> {
         // arrange
         let arguments = Arguments::new("test/repeated_lock_release.std", true);
 
@@ -222,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_when_release_non_owning_lock() -> Result<(), Box<dyn Error>> {
+    fn fail_when_release_non_owning_lock() -> Result<(), AnalyzerError> {
         // arrange
         let arguments = Arguments::new("test/release_non_owning_lock.std", true);
 
@@ -251,7 +248,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_when_release_not_acquired_lock() -> Result<(), Box<dyn Error>> {
+    fn fail_when_release_not_acquired_lock() -> Result<(), AnalyzerError> {
         // arrange
         let arguments = Arguments::new("test/release_non_acquired_lock.std", true);
 
@@ -278,7 +275,7 @@ mod tests {
     }
 
     #[test]
-    fn fail_when_read_from_unwritten_memory() -> Result<(), Box<dyn Error>> {
+    fn fail_when_read_from_unwritten_memory() -> Result<(), AnalyzerError> {
         // arrange
         let arguments = Arguments::new("test/read_from_unwritten_memory.std", true);
 
