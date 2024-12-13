@@ -34,10 +34,7 @@ parser!(
 );
 
 pub fn parse_tokens(tokens: Vec<Token>) -> Result<Trace, AnalyzerError> {
-    match trace_grammar::parse(&tokens) {
-        Ok(trace) => Ok(trace),
-        Err(error) => Err(AnalyzerError::from(error)),
-    }
+    trace_grammar::parse(&tokens).map_err(AnalyzerError::from)
 }
 
 #[derive(Debug)]
