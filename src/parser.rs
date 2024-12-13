@@ -135,15 +135,15 @@ mod tests {
         // arrange
         let input = read_to_string("test/valid_trace.std")?;
         let tokens = tokenize_source(input, true)?;
+
+        // act
+        let trace = parse_tokens(tokens)?;
         let expected_event = Event {
             thread_identifier: 6,
             operation: Operation::Write,
             operand: Operand::MemoryLocation(4294967298),
             loc: 59,
         };
-
-        // act
-        let trace = parse_tokens(tokens)?;
 
         // assert
         assert_eq!(trace.events.len(), 7);
