@@ -1,5 +1,4 @@
 use peg::error::ParseError;
-use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::io::Error as IOError;
 
@@ -35,17 +34,6 @@ pub enum AnalyzerError {
     IOError(IOError),
     LexerError(LexerError),
     ParserError(ParseError<usize>),
-}
-
-impl Error for AnalyzerError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            AnalyzerError::IOError(error) => Some(error),
-            AnalyzerError::LexerError(error) => Some(error),
-            AnalyzerError::ParserError(error) => Some(error),
-            _ => None,
-        }
-    }
 }
 
 impl Display for AnalyzerError {
@@ -141,5 +129,3 @@ impl Display for LexerError {
         }
     }
 }
-
-impl Error for LexerError {}
