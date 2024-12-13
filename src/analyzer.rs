@@ -13,22 +13,13 @@ struct Lock {
 
 pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
     // read source file
-    let input = match read_to_string(arguments.input) {
-        Ok(input) => input,
-        Err(error) => return Err(AnalyzerError::from(error)),
-    };
+    let input = read_to_string(arguments.input).map_err(AnalyzerError::from)?;
 
     // lex source file
-    let tokens = match tokenize_source(input, arguments.normalize) {
-        Ok(tokens) => tokens,
-        Err(error) => return Err(AnalyzerError::from(error)),
-    };
+    let tokens = tokenize_source(input, arguments.normalize)?;
 
     // parse tokens
-    let trace = match parse_tokens(tokens) {
-        Ok(trace) => trace,
-        Err(error) => return Err(AnalyzerError::from(error)),
-    };
+    let trace = parse_tokens(tokens)?;
 
     // analyze trace
     let mut locks: HashMap<i64, Lock> = HashMap::new();
