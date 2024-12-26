@@ -73,7 +73,7 @@ mod tests {
         let tokens = tokenize_source(input, false)?;
 
         // assert
-        assert_eq!(tokens.len(), 56); // 8 tokens per line times 7 lines
+        assert_eq!(tokens.len(), 8); // THREAD_IDENTIFIER PIPE WRITE LEFT_PAREN NUMBER RIGHT_PAREN PIPE NUMBER
 
         Ok(())
     }
