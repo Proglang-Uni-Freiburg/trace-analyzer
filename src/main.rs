@@ -1,7 +1,6 @@
 use arguments::Arguments;
 use clap::Parser;
 use log::{error, info};
-use simple_logger::SimpleLogger;
 
 mod analyzer;
 mod arguments;
@@ -11,11 +10,16 @@ mod normalizer;
 mod parser;
 
 fn main() {
-    SimpleLogger::new().init().unwrap();
+    env_logger::init();
     let arguments = Arguments::parse();
 
     match analyzer::analyze_trace(arguments) {
         Ok(_) => info!("Analyzer could not find a violation"),
-        Err(error) => error!("{error}"),
+        Err(errors) => {
+            error!("Analyzer found {} errors in the analyzed trace", errors.len());
+            for error in errors {
+                error!("{}", error);
+            }
+        }
     }
 }
