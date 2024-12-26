@@ -1,32 +1,58 @@
 use crate::arguments::Arguments;
 use crate::error::AnalyzerError;
 use crate::lexer::tokenize_source;
-use crate::parser::{parse_tokens, Operation};
+use crate::parser::{parse_event, Operation};
+use std::collections::{HashMap};
+use std::fs::{File};
+use std::io::{BufRead, BufReader};
 use log::debug;
-use std::collections::{HashMap, HashSet};
-use std::fs::read_to_string;
 
 struct Lock {
     owner: Option<i64>,
     locked: bool,
 }
 
-pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
-    // read source file
-    let input = read_to_string(arguments.input).map_err(AnalyzerError::from)?;
+pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
+    // store trace violations
+    let mut errors = Vec::new();
 
-    // lex source file
-    let tokens = tokenize_source(input, arguments.normalize)?;
+    // stream content of file to avoid OOM
+    let file_handle = match File::open(arguments.input) {
+        Ok(file_handle) => file_handle,
+        Err(err) => {
+            errors.push(AnalyzerError::from(err));
+            return Err(errors);
+        }
+    };
 
-    // parse tokens
-    let trace = parse_tokens(tokens)?;
+    let reader = BufReader::new(file_handle);
 
-    // analyze trace
     let mut locks: HashMap<i64, Lock> = HashMap::new();
-    let mut memory_locations: HashSet<i64> = HashSet::new();
-    let mut line = 1;
+    let mut row = 1;
 
-    for event in &trace.events {
+    for line in reader.lines() {
+        let line = match line.map_err(AnalyzerError::from) {
+            Ok(line) => line,
+            Err(err) => {
+                errors.push(AnalyzerError::from(err));
+                return Err(errors);
+            }
+        };
+        let tokens = match tokenize_source(line, arguments.normalize) {
+            Ok(tokens) => tokens,
+            Err(err) => {
+                errors.push(err);
+                return Err(errors);
+            }
+        };
+        let event = match parse_event(tokens) {
+            Ok(event) => event,
+            Err(err) => {
+                errors.push(err);
+                return Err(errors);
+            }
+        };
+
         match event.operation {
             Operation::Acquire => {
                 let lock_id = event.operand.id();
@@ -34,11 +60,12 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
                 if let Some(lock) = locks.get(&lock_id) {
                     if lock.locked {
                         let error = AnalyzerError::RepeatedAcquisition {
-                            line,
+                            line: row,
                             lock_id,
                             thread_id: event.thread_identifier,
                         };
-                        return Err(error);
+                        errors.push(error);
+                        continue;
                     }
                 }
 
@@ -49,7 +76,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
 
                 locks.insert(lock_id, lock);
                 debug!(
-                    "Thread 'T{}' acquired lock 'L{lock_id}' in line {line}",
+                    "Thread 'T{}' acquired lock 'L{lock_id}' in line {row}",
                     event.thread_identifier
                 );
             }
@@ -59,31 +86,34 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
                 match locks.get(&lock_id) {
                     None => {
                         let error = AnalyzerError::ReleasedNonAcquiredLock {
-                            line,
+                            line: row,
                             lock_id,
                             thread_id: event.thread_identifier,
                         };
-                        return Err(error);
+                        errors.push(error);
+                        continue;
                     }
                     Some(lock) => {
                         if !lock.locked {
                             let error = AnalyzerError::RepeatedRelease {
-                                line,
+                                line: row,
                                 lock_id,
                                 thread_id: event.thread_identifier,
                             };
-                            return Err(error);
+                            errors.push(error);
+                            continue;
                         }
 
                         if let Some(owner) = lock.owner {
                             if owner != event.thread_identifier {
                                 let error = AnalyzerError::ReleasedNonOwningLock {
-                                    line,
+                                    line: row,
                                     lock_id,
                                     thread_id: event.thread_identifier,
                                     owner,
                                 };
-                                return Err(error);
+                                errors.push(error);
+                                continue;
                             }
                         }
 
@@ -94,44 +124,23 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), AnalyzerError> {
 
                         locks.insert(lock_id, updated_lock);
                         debug!(
-                            "Thread 'T{}' released lock 'L{lock_id}' in line {line}",
+                            "Thread 'T{}' released lock 'L{lock_id}' in line {row}",
                             event.thread_identifier
                         );
                     }
                 }
             }
-            Operation::Write => {
-                let memory_id = event.operand.id();
-
-                memory_locations.insert(memory_id);
-                debug!(
-                    "Thread 'T{}' wrote to memory location 'V{memory_id}' in line {line}",
-                    event.thread_identifier
-                );
-            }
-            Operation::Read => {
-                let memory_id = event.operand.id();
-
-                if memory_locations.get(&memory_id).is_none() {
-                    let error = AnalyzerError::ReadFromUnwrittenMemory {
-                        line,
-                        memory_id,
-                        thread_id: event.thread_identifier,
-                    };
-                    return Err(error);
-                }
-
-                debug!(
-                    "Thread 'T{}' read from memory location 'V{memory_id}' in line {line}",
-                    event.thread_identifier
-                );
-            }
             // other operations are not needed to check well-formedness
             _ => {}
         }
-        line += 1;
+        row += 1;
     }
-    Ok(())
+
+    if errors.is_empty() {
+        return Ok(());
+    }
+
+    Err(errors)
 }
 
 #[cfg(test)]
@@ -160,10 +169,11 @@ mod tests {
         let arguments = Arguments::new("test/repeated_lock_acquisition.std", true);
 
         // act
-        let error = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(arguments).unwrap_err();
 
         // assert
-        assert!(match error {
+        assert_eq!(errors.len(), 1);
+        assert!(match errors[0] {
             AnalyzerError::RepeatedAcquisition {
                 line,
                 lock_id,
@@ -187,11 +197,11 @@ mod tests {
         let arguments = Arguments::new("test/repeated_lock_release.std", true);
 
         // act
-        let error = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(arguments).unwrap_err();
 
         // assert
-
-        assert!(match error {
+        assert_eq!(errors.len(), 1);
+        assert!(match errors[0] {
             AnalyzerError::RepeatedRelease {
                 line,
                 lock_id,
@@ -215,10 +225,11 @@ mod tests {
         let arguments = Arguments::new("test/release_non_owning_lock.std", true);
 
         // act
-        let error = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(arguments).unwrap_err();
 
         // assert
-        assert!(match error {
+        assert_eq!(errors.len(), 1);
+        assert!(match errors[0] {
             AnalyzerError::ReleasedNonOwningLock {
                 line,
                 lock_id,
@@ -244,10 +255,11 @@ mod tests {
         let arguments = Arguments::new("test/release_non_acquired_lock.std", true);
 
         // act
-        let error = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(arguments).unwrap_err();
 
         // assert
-        assert!(match error {
+        assert_eq!(errors.len(), 1);
+        assert!(match errors[0] {
             AnalyzerError::ReleasedNonAcquiredLock {
                 line,
                 lock_id,
@@ -256,33 +268,6 @@ mod tests {
                 assert_eq!(line, 6);
                 assert_eq!(lock_id, 9);
                 assert_eq!(thread_id, 7);
-
-                true
-            }
-            _ => false,
-        });
-
-        Ok(())
-    }
-
-    #[test]
-    fn fail_when_read_from_unwritten_memory() -> Result<(), AnalyzerError> {
-        // arrange
-        let arguments = Arguments::new("test/read_from_unwritten_memory.std", true);
-
-        // act
-        let error = analyze_trace(arguments).unwrap_err();
-
-        // assert
-        assert!(match error {
-            AnalyzerError::ReadFromUnwrittenMemory {
-                line,
-                memory_id,
-                thread_id,
-            } => {
-                assert_eq!(line, 1);
-                assert_eq!(memory_id, 4294967298);
-                assert_eq!(thread_id, 6);
 
                 true
             }
