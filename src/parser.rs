@@ -7,12 +7,7 @@ parser!(
     pub grammar trace_grammar<'a>() for [Token] {
         use crate::lexer::Token::*;
 
-        pub rule parse() -> Trace
-            = events:event()* {
-                Trace { events }
-            }
-
-        rule event() -> Event
+        pub rule parse()-> Event
             = [ThreadIdentifier(thread_identifier)] [Pipe] operation:operation() [LeftParenthesis] operand:operand() [RightParenthesis] [Pipe] [LineNumber(loc)] {
                 Event { thread_identifier, operation, operand, loc }
             }
@@ -33,22 +28,8 @@ parser!(
     }
 );
 
-pub fn parse_tokens(tokens: Vec<Token>) -> Result<Trace, AnalyzerError> {
+pub fn parse_event(tokens: Vec<Token>) -> Result<Event, AnalyzerError> {
     trace_grammar::parse(&tokens).map_err(AnalyzerError::from)
-}
-
-#[derive(Debug)]
-pub struct Trace {
-    pub events: Vec<Event>,
-}
-
-impl Display for Trace {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for event in &self.events {
-            writeln!(f, "{}", event)?;
-        }
-        Ok(())
-    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -134,7 +115,7 @@ mod tests {
         let tokens = tokenize_source(input, true)?;
 
         // act
-        let trace = parse_tokens(tokens)?;
+        let actual_event = parse_event(tokens)?;
         let expected_event = Event {
             thread_identifier: 6,
             operation: Operation::Write,
@@ -143,8 +124,7 @@ mod tests {
         };
 
         // assert
-        assert_eq!(trace.events.len(), 7);
-        assert_eq!(trace.events[0], expected_event);
+        assert_eq!(actual_event, expected_event);
 
         Ok(())
     }
@@ -156,7 +136,7 @@ mod tests {
         let tokens = tokenize_source(input, false)?;
 
         // act
-        let error = parse_tokens(tokens).unwrap_err();
+        let error = parse_event(tokens).unwrap_err();
 
         // assert
         assert!(match error {
