@@ -5,23 +5,25 @@ use std::io::Error as IOError;
 #[derive(Debug)]
 pub enum AnalyzerError {
     RepeatedAcquisition {
-        line: usize,
+        attempted: usize,
+        previous: usize,
         lock_id: i64,
         thread_id: i64,
     },
     RepeatedRelease {
-        line: usize,
+        attempted: usize,
+        previous: usize,
         lock_id: i64,
         thread_id: i64,
     },
     ReleasedNonOwningLock {
-        line: usize,
+        row: usize,
         lock_id: i64,
         thread_id: i64,
         owner: i64,
     },
     ReleasedNonAcquiredLock {
-        line: usize,
+        row: usize,
         lock_id: i64,
         thread_id: i64,
     },
@@ -35,46 +37,45 @@ impl Display for AnalyzerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let description = match self {
             AnalyzerError::RepeatedAcquisition {
-                line,
+                attempted,
+                previous,
                 lock_id,
                 thread_id,
             } => {
-                format!("Analyzer found a violation in line {line}: Thread 'T{thread_id}' tried to acquire lock 'L{lock_id}' which was already locked")
+                format!("Thread 'T{thread_id}' tried to acquire the already acquired lock 'L{lock_id}' in row {attempted}. Last acquisition occurred in row {previous}")
             }
             AnalyzerError::RepeatedRelease {
-                line,
+                attempted,
+                previous,
                 lock_id,
                 thread_id,
             } => {
-                format!("Analyzer found a violation in line {line}: Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which was already released")
+                format!("Thread 'T{thread_id}' tried to release the already released lock 'L{lock_id}' in row {attempted}. Last release occurred in row {previous}")
             }
             AnalyzerError::ReleasedNonOwningLock {
-                line,
+                row,
                 lock_id,
                 thread_id,
                 owner,
             } => {
-                format!("Analyzer found a violation in line {line}: Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which is owned by thread '{owner}'")
+                format!("Thread 'T{thread_id}' tried to release the non-owning lock 'L{lock_id}' in row {row}. Current owner is thread '{owner}'")
             }
             AnalyzerError::ReleasedNonAcquiredLock {
-                line,
+                row,
                 lock_id,
                 thread_id,
             } => {
-                format!("Analyzer found a violation in line {line}: Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which was not previously acquired")
+                format!("Thread 'T{thread_id}' tried to release the non-acquired lock 'L{lock_id}' in row {row}")
             }
             AnalyzerError::IOError(error) => {
-                format!(
-                    "Analyzer encountered an error while performing an I/O operation: {}",
-                    error
-                )
+                format!("Analyzer encountered an error while performing I/O: {}", error)
             }
             AnalyzerError::LexerError(error) => {
-                format!("Analyzer encountered an error while lexing: {}", error)
+                format!("Lexer encountered an error: {}", error)
             }
             AnalyzerError::ParserError(error) => {
                 format!(
-                    "Analyzer encountered a parser error at location '{}': {}",
+                    "Parser encountered an error at index {}: Expected {}",
                     error.location, error.expected
                 )
             }
@@ -112,7 +113,7 @@ impl Display for LexerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             LexerError::NonAsciiCharacter => {
-                write!(f, "Logos encountered a non-ascii character")
+                write!(f, "Could not lex non-ascii character")
             }
         }
     }

@@ -2,14 +2,15 @@ use crate::arguments::Arguments;
 use crate::error::AnalyzerError;
 use crate::lexer::tokenize_source;
 use crate::parser::{parse_event, Operation};
-use std::collections::{HashMap};
-use std::fs::{File};
-use std::io::{BufRead, BufReader};
 use log::debug;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 struct Lock {
     owner: Option<i64>,
     locked: bool,
+    row: usize,
 }
 
 pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
@@ -60,7 +61,8 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
                 if let Some(lock) = locks.get(&lock_id) {
                     if lock.locked {
                         let error = AnalyzerError::RepeatedAcquisition {
-                            line: row,
+                            attempted: row,
+                            previous: lock.row,
                             lock_id,
                             thread_id: event.thread_identifier,
                         };
@@ -70,8 +72,9 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
                 }
 
                 let lock = Lock {
-                    locked: true,
                     owner: Some(event.thread_identifier),
+                    locked: true,
+                    row,
                 };
 
                 locks.insert(lock_id, lock);
@@ -86,7 +89,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
                 match locks.get(&lock_id) {
                     None => {
                         let error = AnalyzerError::ReleasedNonAcquiredLock {
-                            line: row,
+                            row: row,
                             lock_id,
                             thread_id: event.thread_identifier,
                         };
@@ -96,7 +99,8 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
                     Some(lock) => {
                         if !lock.locked {
                             let error = AnalyzerError::RepeatedRelease {
-                                line: row,
+                                attempted: row,
+                                previous: lock.row,
                                 lock_id,
                                 thread_id: event.thread_identifier,
                             };
@@ -107,7 +111,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
                         if let Some(owner) = lock.owner {
                             if owner != event.thread_identifier {
                                 let error = AnalyzerError::ReleasedNonOwningLock {
-                                    line: row,
+                                    row,
                                     lock_id,
                                     thread_id: event.thread_identifier,
                                     owner,
@@ -120,6 +124,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
                         let updated_lock = Lock {
                             locked: false,
                             owner: None,
+                            row,
                         };
 
                         locks.insert(lock_id, updated_lock);
@@ -175,11 +180,13 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(match errors[0] {
             AnalyzerError::RepeatedAcquisition {
-                line,
+                attempted,
+                previous,
                 lock_id,
                 thread_id,
             } => {
-                assert_eq!(line, 7);
+                assert_eq!(attempted, 7);
+                assert_eq!(previous, 6);
                 assert_eq!(lock_id, 9);
                 assert_eq!(thread_id, 7);
 
@@ -203,11 +210,13 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(match errors[0] {
             AnalyzerError::RepeatedRelease {
-                line,
+                attempted,
+                previous,
                 lock_id,
                 thread_id,
             } => {
-                assert_eq!(line, 8);
+                assert_eq!(previous, 7);
+                assert_eq!(attempted, 8);
                 assert_eq!(lock_id, 9);
                 assert_eq!(thread_id, 6);
 
@@ -231,7 +240,7 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(match errors[0] {
             AnalyzerError::ReleasedNonOwningLock {
-                line,
+                row: line,
                 lock_id,
                 thread_id,
                 owner,
@@ -261,7 +270,7 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(match errors[0] {
             AnalyzerError::ReleasedNonAcquiredLock {
-                line,
+                row: line,
                 lock_id,
                 thread_id,
             } => {
