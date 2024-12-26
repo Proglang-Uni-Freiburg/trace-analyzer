@@ -25,11 +25,6 @@ pub enum AnalyzerError {
         lock_id: i64,
         thread_id: i64,
     },
-    ReadFromUnwrittenMemory {
-        line: usize,
-        memory_id: i64,
-        thread_id: i64,
-    },
     // wrapped errors
     IOError(IOError),
     LexerError(LexerError),
@@ -68,16 +63,9 @@ impl Display for AnalyzerError {
             } => {
                 format!("Analyzer found a violation in line {line}: Thread 'T{thread_id}' tried to release lock 'L{lock_id}' which was not previously acquired")
             }
-            AnalyzerError::ReadFromUnwrittenMemory {
-                line,
-                memory_id,
-                thread_id,
-            } => {
-                format!("Analyzer found a violation in line {line}: Thread 'T{thread_id}' tried to read from memory location 'V{memory_id}' which was not written to")
-            }
             AnalyzerError::IOError(error) => {
                 format!(
-                    "Analyzer encountered an error while performing I/O operations: {}",
+                    "Analyzer encountered an error while performing an I/O operation: {}",
                     error
                 )
             }
