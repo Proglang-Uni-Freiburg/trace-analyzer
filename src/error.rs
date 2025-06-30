@@ -38,7 +38,10 @@ impl Display for AnalyzerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let description = match self {
             AnalyzerError::RepeatedAcquisition {
-                lock_id, thread_id, owner_id, row
+                lock_id,
+                thread_id,
+                owner_id,
+                row,
             } => {
                 format!("Thread 'T{thread_id}' tried to acquire the already acquired lock 'L{lock_id}' in row {row}. Current owner is {owner_id}")
             }

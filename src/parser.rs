@@ -77,7 +77,7 @@ impl Operation {
             7 => Some(Operation::End),
             8 => Some(Operation::Request),
             9 => Some(Operation::Branch),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -117,7 +117,7 @@ impl Operand {
             Operation::Release => Operand::LockIdentifier(operand_id),
             Operation::Fork => Operand::ThreadIdentifier(operand_id),
             Operation::Join => Operand::ThreadIdentifier(operand_id),
-            _ => Operand::None
+            _ => Operand::None,
         }
     }
 
@@ -137,7 +137,7 @@ impl Display for Operand {
             Operand::MemoryLocation(memory_location) => write!(f, "V{memory_location}"),
             Operand::LockIdentifier(lock_identifier) => write!(f, "L{lock_identifier}"),
             Operand::ThreadIdentifier(thread_identifier) => write!(f, "T{thread_identifier}"),
-            Operand::None => write!(f, "None")
+            Operand::None => write!(f, "None"),
         }
     }
 }

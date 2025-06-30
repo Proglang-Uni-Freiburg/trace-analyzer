@@ -43,7 +43,9 @@ pub enum Token {
 }
 
 pub fn tokenize_source(source: String, normalize: bool) -> Result<Vec<Token>, AnalyzerError> {
-    let tokens = Token::lexer(&source).collect::<Result<Vec<_>, LexerError>>().map_err(AnalyzerError::from)?;
+    let tokens = Token::lexer(&source)
+        .collect::<Result<Vec<_>, LexerError>>()
+        .map_err(AnalyzerError::from)?;
 
     if normalize {
         Ok(normalize_tokens(tokens))
