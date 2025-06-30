@@ -5,10 +5,10 @@ use std::io::Error as IOError;
 #[derive(Debug)]
 pub enum AnalyzerError {
     RepeatedAcquisition {
-        attempted: usize,
-        previous: usize,
         lock_id: i64,
         thread_id: i64,
+        owner_id: i64,
+        row: usize,
     },
     RepeatedRelease {
         attempted: usize,
@@ -27,6 +27,7 @@ pub enum AnalyzerError {
         lock_id: i64,
         thread_id: i64,
     },
+    UnsupportedFileExtension,
     // wrapped errors
     IOError(IOError),
     LexerError(LexerError),
@@ -37,12 +38,9 @@ impl Display for AnalyzerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let description = match self {
             AnalyzerError::RepeatedAcquisition {
-                attempted,
-                previous,
-                lock_id,
-                thread_id,
+                lock_id, thread_id, owner_id, row
             } => {
-                format!("Thread 'T{thread_id}' tried to acquire the already acquired lock 'L{lock_id}' in row {attempted}. Last acquisition occurred in row {previous}")
+                format!("Thread 'T{thread_id}' tried to acquire the already acquired lock 'L{lock_id}' in row {row}. Current owner is {owner_id}")
             }
             AnalyzerError::RepeatedRelease {
                 attempted,
@@ -68,7 +66,10 @@ impl Display for AnalyzerError {
                 format!("Thread 'T{thread_id}' tried to release the non-acquired lock 'L{lock_id}' in row {row}")
             }
             AnalyzerError::IOError(error) => {
-                format!("Analyzer encountered an error while performing I/O: {}", error)
+                format!(
+                    "Analyzer encountered an error while performing I/O: {}",
+                    error
+                )
             }
             AnalyzerError::LexerError(error) => {
                 format!("Lexer encountered an error: {}", error)
@@ -78,6 +79,9 @@ impl Display for AnalyzerError {
                     "Parser encountered an error at index {}: Expected {}",
                     error.location, error.expected
                 )
+            }
+            AnalyzerError::UnsupportedFileExtension => {
+                "Provided file extension is not supported".to_string()
             }
         };
 
