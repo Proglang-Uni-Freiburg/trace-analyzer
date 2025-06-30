@@ -7,7 +7,7 @@ parser!(
     pub grammar trace_grammar<'a>() for [Token] {
         use crate::lexer::Token::*;
 
-        pub rule parse()-> Event
+        pub rule parse() -> Event
             = [ThreadIdentifier(thread_identifier)] [Pipe] operation:operation() [LeftParenthesis] operand:operand() [RightParenthesis] [Pipe] [LineNumber(loc)] {
                 Event { thread_identifier, operation, operand, loc }
             }
@@ -59,6 +59,27 @@ pub enum Operation {
     Release,
     Fork,
     Join,
+    Begin,
+    End,
+    Branch,
+}
+
+impl Operation {
+    pub fn new(value: i64) -> Option<Self> {
+        match value {
+            0 => Some(Operation::Acquire),
+            1 => Some(Operation::Release),
+            2 => Some(Operation::Read),
+            3 => Some(Operation::Write),
+            4 => Some(Operation::Fork),
+            5 => Some(Operation::Join),
+            6 => Some(Operation::Begin),
+            7 => Some(Operation::End),
+            8 => Some(Operation::Request),
+            9 => Some(Operation::Branch),
+            _ => None
+        }
+    }
 }
 
 impl Display for Operation {
@@ -71,6 +92,9 @@ impl Display for Operation {
             Operation::Release => write!(f, "Release"),
             Operation::Fork => write!(f, "Fork"),
             Operation::Join => write!(f, "Join"),
+            Operation::Begin => write!(f, "Begin"),
+            Operation::End => write!(f, "End"),
+            Operation::Branch => write!(f, "Branch"),
         }
     }
 }
@@ -80,14 +104,29 @@ pub enum Operand {
     MemoryLocation(i64),
     LockIdentifier(i64),
     ThreadIdentifier(i64),
+    None,
 }
 
 impl Operand {
-    pub fn id(&self) -> i64 {
+    pub fn new(operation: &Operation, operand_id: i64) -> Self {
+        match operation {
+            Operation::Read => Operand::MemoryLocation(operand_id),
+            Operation::Write => Operand::MemoryLocation(operand_id),
+            Operation::Acquire => Operand::LockIdentifier(operand_id),
+            Operation::Request => Operand::LockIdentifier(operand_id),
+            Operation::Release => Operand::LockIdentifier(operand_id),
+            Operation::Fork => Operand::ThreadIdentifier(operand_id),
+            Operation::Join => Operand::ThreadIdentifier(operand_id),
+            _ => Operand::None
+        }
+    }
+
+    pub fn id(&self) -> Option<i64> {
         match self {
-            Operand::MemoryLocation(memory_id) => *memory_id,
-            Operand::LockIdentifier(lock_id) => *lock_id,
-            Operand::ThreadIdentifier(thread_id) => *thread_id,
+            Operand::MemoryLocation(memory_id) => Some(*memory_id),
+            Operand::LockIdentifier(lock_id) => Some(*lock_id),
+            Operand::ThreadIdentifier(thread_id) => Some(*thread_id),
+            Operand::None => None,
         }
     }
 }
@@ -98,6 +137,7 @@ impl Display for Operand {
             Operand::MemoryLocation(memory_location) => write!(f, "V{memory_location}"),
             Operand::LockIdentifier(lock_identifier) => write!(f, "L{lock_identifier}"),
             Operand::ThreadIdentifier(thread_identifier) => write!(f, "T{thread_identifier}"),
+            Operand::None => write!(f, "None")
         }
     }
 }
