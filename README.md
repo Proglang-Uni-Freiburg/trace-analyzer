@@ -1,6 +1,6 @@
 # Trace-Analyzer
 
-Tool written in Rust to check traces in STD-format for wellformed-ness.
+Tool written in Rust to check traces defined in STD or RapidBin format for wellformed-ness.
 
 ```shell
 cargo run -- --input input/std/Sor.std --normalize
