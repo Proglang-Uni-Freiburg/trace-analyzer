@@ -1,5 +1,14 @@
 use crate::lexer::Token;
 
+/// Normalizes a trace by transforming the vector of its lexed tokens to match the description of the README. \
+/// See: https://zenodo.org/records/7809600
+///
+/// # Arguments
+///
+/// * `tokens`: a vector of lexed tokens
+///
+/// returns: Vec<Token, Global> a vector containing the transformed tokens
+///
 pub fn normalize_tokens(tokens: Vec<Token>) -> Vec<Token> {
     let mut normalized_tokens = Vec::new();
     let mut token_iterator = tokens.iter();
