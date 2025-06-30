@@ -12,6 +12,7 @@ pub struct Arguments {
 }
 
 impl Arguments {
+    #[allow(dead_code)] // used when running tests
     pub fn new<S: Into<String>>(input: S, normalize: bool) -> Self {
         Self {
             input: input.into(),
