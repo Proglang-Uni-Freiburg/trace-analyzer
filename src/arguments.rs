@@ -9,14 +9,27 @@ pub struct Arguments {
     /// If the input file should be normalized
     #[arg(short, long)]
     pub normalize: bool,
+    /// If a graphical representation should be constructed (only suitable for small traces)
+    #[arg(short, long)]
+    pub graph: bool,
+    /// Analyze trace via lock dependencies (only suitable for small traces)
+    #[arg(short, long)]
+    pub lock_dependencies: bool,
 }
 
 impl Arguments {
     #[allow(dead_code)] // used when running tests
-    pub fn new<S: Into<String>>(input: S, normalize: bool) -> Self {
+    pub fn new<S: Into<String>>(
+        input: S,
+        normalize: bool,
+        graph: bool,
+        lock_dependencies: bool,
+    ) -> Self {
         Self {
             input: input.into(),
             normalize,
+            graph,
+            lock_dependencies,
         }
     }
 }

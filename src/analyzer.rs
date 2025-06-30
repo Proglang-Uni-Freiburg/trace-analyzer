@@ -60,6 +60,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
             return Err(errors);
         }
     };
+
     // stream content of file to avoid OOM
     let mut trace_reader = BufReader::new(file_handle);
 
@@ -74,12 +75,14 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
     let mut lockgraph = HashSet::<Edge>::new();
     let mut lock_dependencies = Vec::<LockDependency>::new();
 
-    writeln!(&mut graphviz_locks, "digraph G {{").unwrap();
+    if &arguments.graph == &true {
+        writeln!(&mut graphviz_locks, "digraph G {{").unwrap();
+    }
 
     // analyze either a STD or RapidBin trace
     match file_extension {
         Some("std") => analyze_std_trace(
-            arguments,
+            &arguments,
             &mut trace_reader,
             &mut errors,
             &mut locks,
@@ -88,6 +91,7 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
             &mut lock_dependencies,
         ),
         Some("data") => analyze_rapid_trace(
+            &arguments,
             &mut trace_reader,
             &mut errors,
             &mut locks,
@@ -98,53 +102,61 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
         _ => errors.push(AnalyzerError::UnsupportedFileExtension),
     }
 
-    for entry in lockgraph.drain() {
-        writeln!(&mut graphviz_locks, "    L{} -> L{};", entry.from, entry.to).unwrap();
-    }
-
-    let mut graph = HashMap::<i64, HashSet<i64>>::new();
-
-    // clean lock dependencies to rule out false positives (like a cycle where the locks are owned be the identical thread)
-    for entry in &lock_dependencies {
-        let children = lock_dependencies
-            .iter()
-            .filter(|other| {
-                other.thread_id != entry.thread_id
-                    && other
-                        .acquired_locks
-                        .intersection(&entry.acquired_locks)
-                        .count()
-                        == 0
-            }) // no guard locks
-            .filter(|other| other.acquired_locks.contains(&entry.lock_id))
-            .map(|dependency| dependency.thread_id) // check for chain
-            .collect::<HashSet<_>>();
-
-        // save information in GraphViz syntax
-        for child in children {
-            add_edge(&mut graph, entry.thread_id, child);
-            writeln!(
-                &mut graphviz_threads,
-                "    T{} -> T{};",
-                entry.thread_id, child
-            )
-            .unwrap();
+    if &arguments.graph == &true {
+        for entry in lockgraph.drain() {
+            writeln!(&mut graphviz_locks, "    L{} -> L{};", entry.from, entry.to).unwrap();
         }
 
-        info!("{:?}", entry);
+        writeln!(&mut graphviz_locks, "}}").unwrap();
+
+        let mut file = File::create("output/graphviz_locks.txt").unwrap();
+        file.write_all(graphviz_locks.as_bytes()).unwrap();
     }
 
-    let result = validate_dependency_graph(graph);
+    if &arguments.lock_dependencies == &true {
+        writeln!(&mut graphviz_threads, "digraph G {{").unwrap();
 
-    info!("{:?} deadlocks were identified", result);
+        let mut graph = HashMap::<i64, HashSet<i64>>::new();
 
-    writeln!(&mut graphviz_locks, "}}").unwrap();
+        // clean lock dependencies to rule out false positives (like a cycle where the locks are owned be the identical thread)
+        for entry in &lock_dependencies {
+            let children = lock_dependencies
+                .iter()
+                .filter(|other| {
+                    other.thread_id != entry.thread_id
+                        && other
+                            .acquired_locks
+                            .intersection(&entry.acquired_locks)
+                            .count()
+                            == 0
+                }) // no guard locks
+                .filter(|other| other.acquired_locks.contains(&entry.lock_id))
+                .map(|dependency| dependency.thread_id) // check for chain
+                .collect::<HashSet<_>>();
 
-    let mut file = File::create("output/graphviz_locks.txt").unwrap();
-    file.write_all(graphviz_locks.as_bytes()).unwrap();
+            // save information in GraphViz syntax
+            for child in children {
+                add_edge(&mut graph, entry.thread_id, child);
+                writeln!(
+                    &mut graphviz_threads,
+                    "    T{} -> T{};",
+                    entry.thread_id, child
+                )
+                .unwrap();
+            }
 
-    let mut file2 = File::create("output/graphviz_threads.txt").unwrap();
-    file2.write_all(graphviz_threads.as_bytes()).unwrap();
+            debug!("{:?}", entry);
+        }
+
+        writeln!(&mut graphviz_threads, "}}").unwrap();
+
+        let result = validate_dependency_graph(graph);
+
+        info!("{:?} deadlocks were identified", result);
+
+        let mut file2 = File::create("output/graphviz_threads.txt").unwrap();
+        file2.write_all(graphviz_threads.as_bytes()).unwrap();
+    }
 
     if errors.is_empty() {
         return Ok(());
@@ -182,7 +194,7 @@ fn add_edge(graph: &mut Graph, from: i64, to: i64) {
 /// returns: () unit
 ///
 fn analyze_std_trace(
-    arguments: Arguments,
+    arguments: &Arguments,
     trace_reader: &mut BufReader<File>,
     errors: &mut Vec<AnalyzerError>,
     locks: &mut HashMap<i64, Lock>,
@@ -206,7 +218,7 @@ fn analyze_std_trace(
             Err(err) => return errors.push(AnalyzerError::from(err)),
         };
 
-        match analyze_event(event, locks, row, graphviz, lock_dependencies) {
+        match analyze_event(arguments, event, locks, row, graphviz, lock_dependencies) {
             Ok(_) => {}
             Err(error) => {
                 errors.push(error);
@@ -240,6 +252,7 @@ const LOCATION_MASK: i64 = ((1 << NUM_LOCATION_BITS) - 1) << LOCATION_BITS_OFFSE
 ///
 /// # Arguments
 ///
+/// * `arguments`:  the command line arguments
 /// * `trace_reader`:  the reader containing the contents of a RapidBin file
 /// * `errors`: a vector containing the errors the analyzer encountered
 /// * `locks`: a vector containing all locks of the trace
@@ -250,6 +263,7 @@ const LOCATION_MASK: i64 = ((1 << NUM_LOCATION_BITS) - 1) << LOCATION_BITS_OFFSE
 /// returns: () unit
 ///
 fn analyze_rapid_trace(
+    arguments: &Arguments,
     trace_reader: &mut BufReader<File>,
     errors: &mut Vec<AnalyzerError>,
     locks: &mut HashMap<i64, Lock>,
@@ -267,7 +281,7 @@ fn analyze_rapid_trace(
             Some(event) => event,
         };
 
-        match analyze_event(event, locks, row, graphviz, lock_dependencies) {
+        match analyze_event(arguments, event, locks, row, graphviz, lock_dependencies) {
             Ok(_) => {}
             Err(error) => errors.push(error),
         }
@@ -337,7 +351,7 @@ fn try_parse_event(event_buffer: [u8; 8]) -> Option<Event> {
         loc,
     };
 
-    info!("{:?}", event);
+    debug!("{:?}", event);
 
     Some(event)
 }
@@ -346,6 +360,7 @@ fn try_parse_event(event_buffer: [u8; 8]) -> Option<Event> {
 ///
 /// # Arguments
 ///
+/// * `arguments`: the command line arguments
 /// * `event`: the to be analyzed event
 /// * `locks`: a hashmap containing all locks of a trace
 /// * `line`: the current line of the trace
@@ -355,6 +370,7 @@ fn try_parse_event(event_buffer: [u8; 8]) -> Option<Event> {
 /// returns: Result<(), AnalyzerError> unit if the event doesn't violate well-formedness, an error otherwise
 ///
 fn analyze_event(
+    arguments: &Arguments,
     event: Event,
     locks: &mut HashMap<i64, Lock>,
     line: usize,
@@ -366,34 +382,38 @@ fn analyze_event(
             let lock_id = event.operand.id().unwrap();
             let thread_owned_locks = locks_of_thread(event.thread_identifier, locks);
 
-            let acquired_locks = if thread_owned_locks.len() > 0 {
-                thread_owned_locks.clone()
-            } else {
-                HashSet::new()
-            };
-
-            let existing = lock_dependencies.iter().find(|dependency| {
-                dependency.thread_id == event.thread_identifier
-                    && dependency.lock_id == lock_id
-                    && dependency.acquired_locks == thread_owned_locks
-            });
-
-            if existing.is_none() {
-                let lock_dependency = LockDependency {
-                    thread_id: event.thread_identifier,
-                    lock_id,
-                    acquired_locks,
-                    line,
+            if &arguments.lock_dependencies == &true {
+                let acquired_locks = if thread_owned_locks.len() > 0 {
+                    thread_owned_locks.clone()
+                } else {
+                    HashSet::new()
                 };
 
-                lock_dependencies.push(lock_dependency);
+                let existing = lock_dependencies.iter().find(|dependency| {
+                    dependency.thread_id == event.thread_identifier
+                        && dependency.lock_id == lock_id
+                        && dependency.acquired_locks == thread_owned_locks
+                });
+
+                if existing.is_none() {
+                    let lock_dependency = LockDependency {
+                        thread_id: event.thread_identifier,
+                        lock_id,
+                        acquired_locks,
+                        line,
+                    };
+
+                    lock_dependencies.push(lock_dependency);
+                }
             }
 
-            for owned_lock in thread_owned_locks {
-                graphviz.insert(Edge {
-                    from: owned_lock,
-                    to: lock_id,
-                });
+            if &arguments.graph == &true {
+                for owned_lock in thread_owned_locks {
+                    graphviz.insert(Edge {
+                        from: owned_lock,
+                        to: lock_id,
+                    });
+                }
             }
 
             if let Some(lock) = locks.get(&lock_id) {
@@ -422,10 +442,12 @@ fn analyze_event(
         Operation::Release => {
             let lock_id = event.operand.id().unwrap();
 
-            if let Some(lock_dependency) =
-                lock_dependency_of_thread(event.thread_identifier, lock_dependencies)
-            {
-                lock_dependency.clone().remove_lock(lock_id);
+            if &arguments.lock_dependencies == &true {
+                if let Some(lock_dependency) =
+                    lock_dependency_of_thread(event.thread_identifier, lock_dependencies)
+                {
+                    lock_dependency.clone().remove_lock(lock_id);
+                }
             }
 
             match locks.get(&lock_id) {
@@ -562,13 +584,17 @@ fn contains_cycle(
     visited.insert(node, true);
     recursion_stack.insert(node, true);
 
-    for child in graph.get(&node).unwrap().clone() {
-        if visited.get(&child).is_none() && contains_cycle(graph, child, visited, recursion_stack) {
-            return true;
-        } else if recursion_stack.get(&child).is_some()
-            && recursion_stack.get(&child).unwrap() == &true
-        {
-            return true;
+    if let Some(node) = graph.get(&node) {
+        for child in node.clone() {
+            if visited.get(&child).is_none()
+                && contains_cycle(graph, child, visited, recursion_stack)
+            {
+                return true;
+            } else if recursion_stack.get(&child).is_some()
+                && recursion_stack.get(&child).unwrap() == &true
+            {
+                return true;
+            }
         }
     }
 
@@ -586,7 +612,7 @@ mod tests {
     #[test]
     fn succeed_when_analyzing_valid_trace() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/valid_trace.std", true);
+        let arguments = Arguments::new("test/valid_trace.std", true, false, false);
 
         // act
         let result = analyze_trace(arguments);
@@ -600,7 +626,7 @@ mod tests {
     #[test]
     fn fail_when_acquire_lock_repeatedly() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/repeated_lock_acquisition.std", true);
+        let arguments = Arguments::new("test/repeated_lock_acquisition.std", true, false, false);
 
         // act
         let errors = analyze_trace(arguments).unwrap_err();
@@ -630,7 +656,7 @@ mod tests {
     #[test]
     fn fail_when_release_lock_repeatedly() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/repeated_lock_release.std", true);
+        let arguments = Arguments::new("test/repeated_lock_release.std", true, false, false);
 
         // act
         let errors = analyze_trace(arguments).unwrap_err();
@@ -660,7 +686,7 @@ mod tests {
     #[test]
     fn fail_when_release_non_owning_lock() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/release_non_owning_lock.std", true);
+        let arguments = Arguments::new("test/release_non_owning_lock.std", true, false, false);
 
         // act
         let errors = analyze_trace(arguments).unwrap_err();
@@ -690,7 +716,7 @@ mod tests {
     #[test]
     fn fail_when_release_not_acquired_lock() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/release_non_acquired_lock.std", true);
+        let arguments = Arguments::new("test/release_non_acquired_lock.std", true, false, false);
 
         // act
         let errors = analyze_trace(arguments).unwrap_err();
