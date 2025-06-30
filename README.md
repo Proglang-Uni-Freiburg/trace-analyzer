@@ -19,5 +19,3 @@ cargo run -- --input input/Bensalem.data --normalize --lock-dependencies
 | `-n` or `--normalize`         | False    | If the trace needs to be normalized first                                                                  |
 | `-g` or `--graph`             | False    | If a graphical representation of the trace should be generated (HIGH memory usage, beware at large traces) |
 | `-l` or `--lock-dependencies` | False    | If a trace should be checked via lock dependencies (HIGH memory usage, beware at large traces)             |
-
->
