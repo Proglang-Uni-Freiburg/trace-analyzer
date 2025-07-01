@@ -11,6 +11,9 @@ cargo run -- --input input/Bensalem.data --normalize --graph
 
 # normalize input and check for violations and analyze via lock dependencies
 cargo run -- --input input/Bensalem.data --normalize --lock-dependencies
+
+# normalize input and check for violations and log them individually
+cargo run -- --input input/Bensalem.data --normalize --verbose
 ```
 
 | CLI argument                  | Required | Info                                                                                                       |
@@ -19,3 +22,4 @@ cargo run -- --input input/Bensalem.data --normalize --lock-dependencies
 | `-n` or `--normalize`         | False    | If the trace needs to be normalized first                                                                  |
 | `-g` or `--graph`             | False    | If a graphical representation of the trace should be generated (HIGH memory usage, beware at large traces) |
 | `-l` or `--lock-dependencies` | False    | If a trace should be checked via lock dependencies (HIGH memory usage, beware at large traces)             |
+| `-v` or `--verbose`           | False    | If each violation should be logged individually (Beware at big traces with many violations)                |

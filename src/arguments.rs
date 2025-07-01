@@ -15,6 +15,9 @@ pub struct Arguments {
     /// Analyze trace via lock dependencies (only suitable for small traces)
     #[arg(short, long)]
     pub lock_dependencies: bool,
+    /// If each violation should be logged individually (only suitable for small traces)
+    #[arg(short, long)]
+    pub verbose: bool,
 }
 
 impl Arguments {
@@ -24,12 +27,14 @@ impl Arguments {
         normalize: bool,
         graph: bool,
         lock_dependencies: bool,
+        verbose: bool,
     ) -> Self {
         Self {
             input: input.into(),
             normalize,
             graph,
             lock_dependencies,
+            verbose,
         }
     }
 }
