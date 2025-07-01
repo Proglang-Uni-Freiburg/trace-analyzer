@@ -5,6 +5,7 @@ use crate::parser::{parse_event, Event, Operand, Operation};
 use log::{debug, info};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as FmtWrite;
+use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::Path;
@@ -109,8 +110,14 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
 
         writeln!(&mut graphviz_locks, "}}").unwrap();
 
-        let mut file = File::create("output/graphviz_locks.txt").unwrap();
-        file.write_all(graphviz_locks.as_bytes()).unwrap();
+        match fs::create_dir_all("output") {
+            Ok(()) => {
+                let mut file = File::create("output/graphviz_locks.txt").unwrap();
+                file.write_all(graphviz_locks.as_bytes()).unwrap();
+            },
+            Err(e) => 
+                eprintln!("Failed to create directory {:?}: {}", "output", e)
+        }
     }
 
     if &arguments.lock_dependencies == &true {
@@ -154,8 +161,14 @@ pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
 
         info!("{:?} deadlocks were identified", result);
 
-        let mut file2 = File::create("output/graphviz_threads.txt").unwrap();
-        file2.write_all(graphviz_threads.as_bytes()).unwrap();
+        match fs::create_dir_all("output") {
+            Ok(()) => {
+                let mut file2 = File::create("output/graphviz_threads.txt").unwrap();
+                file2.write_all(graphviz_threads.as_bytes()).unwrap();
+            },
+            Err(e) => 
+                eprintln!("Failed to create directory {:?}: {}", "output", e)
+        }
     }
 
     if errors.is_empty() {
