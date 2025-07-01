@@ -47,7 +47,7 @@ impl LockDependency {
 ///
 /// returns: Result<(), Vec<AnalyzerError, Global>> Unit if the trace is well-formed, otherwise a vector containing the violations
 ///
-pub fn analyze_trace(arguments: Arguments) -> Result<(), Vec<AnalyzerError>> {
+pub fn analyze_trace(arguments: &Arguments) -> Result<(), Vec<AnalyzerError>> {
     // store trace violations
     let mut errors: Vec<AnalyzerError> = Vec::new();
     let mut locks: HashMap<i64, Lock> = HashMap::new();
@@ -612,10 +612,10 @@ mod tests {
     #[test]
     fn succeed_when_analyzing_valid_trace() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/valid_trace.std", true, false, false);
+        let arguments = Arguments::new("test/valid_trace.std", true, false, false, false);
 
         // act
-        let result = analyze_trace(arguments);
+        let result = analyze_trace(&arguments);
 
         // assert
         assert!(result.is_ok());
@@ -626,10 +626,16 @@ mod tests {
     #[test]
     fn fail_when_acquire_lock_repeatedly() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/repeated_lock_acquisition.std", true, false, false);
+        let arguments = Arguments::new(
+            "test/repeated_lock_acquisition.std",
+            true,
+            false,
+            false,
+            false,
+        );
 
         // act
-        let errors = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(&arguments).unwrap_err();
 
         // assert
         assert_eq!(errors.len(), 1);
@@ -656,10 +662,10 @@ mod tests {
     #[test]
     fn fail_when_release_lock_repeatedly() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/repeated_lock_release.std", true, false, false);
+        let arguments = Arguments::new("test/repeated_lock_release.std", true, false, false, false);
 
         // act
-        let errors = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(&arguments).unwrap_err();
 
         // assert
         assert_eq!(errors.len(), 1);
@@ -686,10 +692,16 @@ mod tests {
     #[test]
     fn fail_when_release_non_owning_lock() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/release_non_owning_lock.std", true, false, false);
+        let arguments = Arguments::new(
+            "test/release_non_owning_lock.std",
+            true,
+            false,
+            false,
+            false,
+        );
 
         // act
-        let errors = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(&arguments).unwrap_err();
 
         // assert
         assert_eq!(errors.len(), 1);
@@ -716,10 +728,16 @@ mod tests {
     #[test]
     fn fail_when_release_not_acquired_lock() -> Result<(), AnalyzerError> {
         // arrange
-        let arguments = Arguments::new("test/release_non_acquired_lock.std", true, false, false);
+        let arguments = Arguments::new(
+            "test/release_non_acquired_lock.std",
+            true,
+            false,
+            false,
+            false,
+        );
 
         // act
-        let errors = analyze_trace(arguments).unwrap_err();
+        let errors = analyze_trace(&arguments).unwrap_err();
 
         // assert
         assert_eq!(errors.len(), 1);

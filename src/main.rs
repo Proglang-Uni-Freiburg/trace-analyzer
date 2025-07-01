@@ -13,13 +13,19 @@ fn main() {
     env_logger::init();
     let arguments = Arguments::parse();
 
-    match analyzer::analyze_trace(arguments) {
+    match analyzer::analyze_trace(&arguments) {
         Ok(_) => info!("Analyzer could not find a violation"),
         Err(errors) => {
             error!(
                 "Analyzer found {} errors in the analyzed trace",
                 errors.len()
             );
+
+            if &arguments.verbose == &true {
+                for error in errors {
+                    error!("{}", error);
+                }
+            }
         }
     }
 }
